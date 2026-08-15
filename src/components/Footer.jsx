@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import styles from './Footer.module.css';
-import { Mail, Phone, MapPin, Instagram, Youtube } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 
 const Footer = () => {
   const location = useLocation();
@@ -22,10 +22,37 @@ const Footer = () => {
           {/* Social Media Links */}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
             <a href="https://www.instagram.com/tenaquarium?igsh=dmFxNnY0bHA1dnZi" target="_blank" rel="noopener noreferrer" className={styles['social-icon-btn']} title="Instagram">
-              <Instagram size={20} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+              </svg>
             </a>
             <a href="https://youtube.com/@tenaquarium?si=GoXAupJvi2y6Ogb6" target="_blank" rel="noopener noreferrer" className={styles['social-icon-btn']} title="YouTube">
-              <Youtube size={20} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z" />
+                <polygon points="10 15 15 12 10 9" />
+              </svg>
             </a>
             <a href="https://share.google/nC9McheqTIWPxUzBk" target="_blank" rel="noopener noreferrer" className={styles['social-icon-btn']} title="Google Profile">
               <svg
