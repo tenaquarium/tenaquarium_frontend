@@ -1,0 +1,65 @@
+/* Testimonials / Reviews Footer slider */
+.testimonials-section {
+  padding: 4rem 5%;
+  background: linear-gradient(180deg, transparent, rgba(14, 165, 233, 0.03));
+  border-top: 1px solid var(--border-color);
+  overflow: hidden;
+  position: relative;
+}
+
+.testimonials-track-container {
+  display: flex;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.testimonials-track {
+  display: flex;
+  gap: 2rem;
+  animation: scroll-left 30s linear infinite;
+  width: max-content;
+}
+
+.testimonials-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.testimonial-card {
+  width: 320px;
+  padding: 1.5rem;
+  flex-shrink: 0;
+}
+
+.testimonial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.testimonial-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.testimonial-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.testimonial-prod {
+  font-size: 0.8rem;
+  color: var(--primary);
+  margin-top: 0.8rem;
+  font-weight: 600;
+}

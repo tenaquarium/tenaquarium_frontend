@@ -1,0 +1,158 @@
+/* Contact Page Viewport Locking */
+.contact-page-container {
+  height: 90vh;
+  padding: 1rem ;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.45) !important;
+ 
+  border-radius: 24px;
+  max-width: 100%;
+  /* background-color: blueviolet; */
+  margin: 0 auto;
+}
+
+.contact-page-header {
+  max-width: 80%;
+  margin: 0 auto;
+  text-align: center;
+  /* margin-bottom: 0; */
+}
+
+.contact-page-grid {
+  display: grid;
+  /* background-color: red; */
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  max-width: 100%;
+  /* margin: 0 auto; */
+  align-items: stretch;
+}
+
+.contact-info-panel {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.contact-form-panel {
+  padding: 2rem;
+}
+
+@media(min-width: 901px) {
+  .app-container:has(.contact-page-container) {
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .app-container:has(.contact-page-container) .footer {
+    display: none;
+  }
+  
+  .app-container:has(.contact-page-container) .main-content {
+    flex-grow: 1;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .app-container:has(.contact-page-container) .main-content > .main-content {
+    flex-grow: 1;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .contact-page-container {
+    height: 85vh !important;
+    max-height: 85vh !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.8rem !important;
+    /* padding: 1rem 3% !important; */
+    transform: translateY(-0.25rem);
+   
+    border-radius: 24px;
+    max-width: 80%;
+    margin: 0 auto !important;
+  }
+  
+  .contact-page-header {
+    margin-bottom: 0;
+  }
+  
+  .contact-page-header h1 {
+    font-size: 1.8rem !important;
+  }
+  
+  .contact-page-grid {
+    height: 70vh !important;
+    max-height: 70vh !important;
+    align-items: stretch;
+  }
+  
+  .contact-info-panel, .contact-form-panel {
+    height: 70vh !important;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1rem 1.2rem !important;
+    border: 1.5px solid rgba(2, 132, 199, 0.15) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+    background: var(--bg-card) !important;
+  }
+  
+  .contact-info-panel {
+    gap: 0.8rem !important;
+  }
+  
+  .contact-form-panel .form-group {
+    margin-bottom: 0.2rem !important;
+  }
+
+  .contact-form-panel .form-control {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.85rem !important;
+  }
+  
+  .contact-form-panel .form-label {
+    margin-bottom: 0.1rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .contact-form-panel button {
+    margin-top: 0.3rem !important;
+    padding: 0.45rem 1rem !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .contact-page-container {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 1rem !important;
+  }
+  .contact-page-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  .contact-info-panel,
+  .contact-form-panel {
+    height: auto !important;
+    padding: 1.5rem 1.2rem !important;
+  }
+  .contact-page-header h1 {
+    font-size: 1.5rem !important;
+  }
+}

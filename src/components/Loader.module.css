@@ -1,0 +1,323 @@
+/* Unique Animated Loader: Premium Realistic Aquarium Theme */
+.loading-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 55vh;
+  gap: 1.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-aquarium {
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(224, 242, 254, 0.45) 0%, rgba(255, 255, 255, 0.8) 60%, rgba(255, 255, 255, 0) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  box-shadow: 0 10px 40px rgba(6, 182, 212, 0.08), inset 0 0 20px rgba(6, 182, 212, 0.05);
+  overflow: visible; /* Let bubbles and light shafts float out */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Underwater caustics and light rays */
+.aquarium-caustics {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: caustics-spin 10s linear infinite;
+  z-index: 1;
+}
+
+.aquarium-light-rays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 50%, rgba(6, 182, 212, 0.1) 100%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: light-ray-shimmer 6s ease-in-out infinite alternate;
+  z-index: 1;
+}
+
+/* Ambient micro particles */
+.water-particle {
+  position: absolute;
+  background: rgba(34, 211, 238, 0.3);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.part-1 { width: 3px; height: 3px; top: 30%; left: 25%; animation: particle-drift-1 8s ease-in-out infinite; }
+.part-2 { width: 4px; height: 4px; top: 65%; left: 75%; animation: particle-drift-2 10s ease-in-out infinite; }
+.part-3 { width: 2px; height: 2px; top: 20%; left: 60%; animation: particle-drift-3 7s ease-in-out infinite; }
+.part-4 { width: 3px; height: 3px; top: 80%; left: 40%; animation: particle-drift-1 9s ease-in-out infinite; }
+.part-5 { width: 4px; height: 4px; top: 45%; left: 80%; animation: particle-drift-2 11s ease-in-out infinite; }
+.part-6 { width: 2px; height: 2px; top: 70%; left: 20%; animation: particle-drift-3 8s ease-in-out infinite; }
+
+/* Progress Bubble Ring */
+.progress-ring-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.progress-ring-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.progress-ring-track {
+  fill: none;
+  stroke: rgba(6, 182, 212, 0.12);
+  stroke-width: 5px;
+  stroke-dasharray: 2 12;
+  stroke-linecap: round;
+}
+
+.progress-ring-active {
+  fill: none;
+  stroke: #22d3ee;
+  stroke-width: 5px;
+  stroke-dasharray: 2 12;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.8));
+  animation: progress-ring-spin 16s linear infinite;
+  transform-origin: center;
+}
+
+/* Swimming Koi Carp Wrapper */
+.koi-swim-wrapper {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  animation: koi-swim-circle 8s linear infinite;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 3;
+}
+
+.koi-carp-svg {
+  position: absolute;
+  top: -24px;
+  transform: rotate(90deg);
+  filter: drop-shadow(0 6px 12px rgba(194, 65, 12, 0.25));
+}
+
+/* Water ripples trailing the fish */
+.koi-ripple-trail {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.koi-ripple {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 50%;
+  animation: ripple-expand 3s infinite ease-out;
+  transform: scale(0);
+  opacity: 0;
+}
+
+.koi-ripple.rp-1 { animation-delay: 0s; }
+.koi-ripple.rp-2 { animation-delay: 1s; }
+.koi-ripple.rp-3 { animation-delay: 2s; }
+
+/* Joint/Fin Wiggle Animations */
+.koi-body-group {
+  transform-origin: 56px 22px;
+  animation: body-wiggle 1.2s ease-in-out infinite;
+}
+
+.koi-tail-group {
+  transform-origin: 64px 97px;
+  animation: tail-wag 0.6s ease-in-out infinite;
+}
+
+.koi-fin-left {
+  transform-origin: 40px 47px;
+  animation: fin-flutter-left 1.4s ease-in-out infinite;
+}
+
+.koi-fin-right {
+  transform-origin: 68px 50px;
+  animation: fin-flutter-right 1.4s ease-in-out infinite;
+}
+
+/* Sea Plants */
+.aquarium-plants {
+  position: absolute;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.1rem;
+  width: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.aquarium-plant {
+  transform-origin: bottom center;
+  filter: drop-shadow(0 2px 6px rgba(4, 120, 87, 0.15));
+}
+
+.plant-1 {
+  animation: plant-sway-1 4s ease-in-out infinite;
+}
+
+.plant-2 {
+  animation: plant-sway-2 3.5s ease-in-out infinite;
+  margin-left: -10px;
+}
+
+.plant-3 {
+  animation: plant-sway-1 4.5s ease-in-out infinite;
+  margin-left: -8px;
+}
+
+/* Rising Air Bubbles */
+.bubble {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: bubble-rise-wobble 4s infinite ease-out;
+  bottom: 15px;
+  box-shadow: inset -2px -2px 4px rgba(255, 255, 255, 0.6);
+  z-index: 4;
+}
+
+.bubble-1 { width: 6px; height: 6px; left: 45%; animation-delay: 0s; animation-duration: 3.2s; }
+.bubble-2 { width: 10px; height: 10px; left: 53%; animation-delay: 0.8s; animation-duration: 3.8s; }
+.bubble-3 { width: 7px; height: 7px; left: 39%; animation-delay: 1.6s; animation-duration: 3s; }
+.bubble-4 { width: 5px; height: 5px; left: 59%; animation-delay: 2.4s; animation-duration: 3.5s; }
+.bubble-5 { width: 12px; height: 12px; left: 48%; animation-delay: 0.4s; animation-duration: 4.2s; }
+
+/* Loader Keyframes */
+@keyframes caustics-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes light-ray-shimmer {
+  0% { opacity: 0.6; transform: rotate(0deg); }
+  100% { opacity: 0.9; transform: rotate(5deg); }
+}
+
+@keyframes particle-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(12px, -15px) scale(1.2); }
+}
+
+@keyframes particle-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-10px, -20px) scale(0.8); }
+}
+
+@keyframes particle-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(15px, 10px) scale(1.1); }
+}
+
+@keyframes progress-ring-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+@keyframes koi-swim-circle {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes ripple-expand {
+  0% { transform: scale(0.3); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes body-wiggle {
+  0%, 100% { transform: rotate(2deg); }
+  50% { transform: rotate(-3deg); }
+}
+
+@keyframes tail-wag {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(12deg); }
+}
+
+@keyframes fin-flutter-left {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@keyframes fin-flutter-right {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-10deg); }
+}
+
+@keyframes plant-sway-1 {
+  0%, 100% { transform: rotate(0deg) skewX(2deg); }
+  50% { transform: rotate(-6deg) skewX(-5deg); }
+}
+
+@keyframes plant-sway-2 {
+  0%, 100% { transform: rotate(0deg) skewX(-3deg); }
+  50% { transform: rotate(5deg) skewX(6deg); }
+}
+
+@keyframes bubble-rise-wobble {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.5);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-80px) translateX(8px) scale(1);
+    opacity: 0.85;
+  }
+  80% {
+    transform: translateY(-160px) translateX(-8px) scale(1.1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-240px) translateX(0) scale(0.7);
+    opacity: 0;
+  }
+}

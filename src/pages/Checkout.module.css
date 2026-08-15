@@ -1,0 +1,166 @@
+/* Cart Page */
+.cart-layout {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 2rem;
+  padding: 2rem 5%;
+}
+
+.cart-items-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.cart-item {
+  display: grid;
+  grid-template-columns: 100px 1fr auto auto;
+  align-items: center;
+  padding: 1rem;
+  gap: 1.5rem;
+}
+
+.cart-item-img {
+  width: 100px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.cart-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cart-item-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.cart-item-price {
+  color: var(--secondary);
+  font-weight: 700;
+}
+
+.checkout-summary {
+  padding: 2rem;
+  height: fit-content;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.summary-total {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+/* Premium UPI Modal styles */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.45) !important; /* Premium slate dark tint */
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+}
+
+.modal-content {
+  background: var(--bg-card) !important;
+  border-radius: 20px !important;
+  border: 1.5px solid rgba(2, 132, 199, 0.25) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  animation: modalScaleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+@keyframes modalScaleIn {
+  from {
+    transform: scale(0.9) translateY(15px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Premium styled top right modal close button */
+.modal-close {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(244, 63, 94, 0.25) !important;
+  background: rgba(244, 63, 94, 0.06) !important;
+  color: var(--accent) !important;
+  font-size: 1.15rem !important;
+  font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  padding: 0 0 2px 0 !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  z-index: 10 !important;
+}
+
+.modal-close:hover {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  transform: rotate(90deg) scale(1.1) !important;
+  box-shadow: 0 4px 10px rgba(244, 63, 94, 0.3) !important;
+  border-color: var(--accent) !important;
+}
+
+.modal-close:active {
+  transform: rotate(90deg) scale(0.95) !important;
+}
+
+/* Category select custom styling */
+.category-select {
+  width: 100% !important;
+  padding: 0.65rem 1rem !important;
+  border-radius: 10px !important;
+  border: 1.5px solid var(--border-color) !important;
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%230284c7' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 20px !important;
+  cursor: pointer !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.01) !important;
+}
+
+.category-select:hover {
+  border-color: rgba(2, 132, 199, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.06) !important;
+}
+
+.category-select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+}

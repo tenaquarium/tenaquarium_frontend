@@ -1,0 +1,46 @@
+/* About page specific styles */
+
+.grid-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.text-col {
+  order: 1;
+}
+
+.image-col {
+  order: 2;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 300px;
+}
+
+.cert-image-col {
+  order: 2;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .grid-section {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  .text-col {
+    order: 2 !important; /* Text goes second on mobile */
+  }
+  
+  .image-col {
+    order: 1 !important; /* Image goes first on mobile */
+    height: 220px !important;
+  }
+  
+  .cert-image-col {
+    order: 1 !important; /* Certificate image goes first on mobile */
+    margin-bottom: 1rem !important;
+  }
+}
