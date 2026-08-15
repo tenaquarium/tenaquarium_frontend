@@ -425,8 +425,10 @@ const CustomerDashboard = () => {
           </style>
         </head>
         <body>
-          <div class="invoice-header">
-             <div class="brand">TENAQUARIUM</div>
+          <div class="invoice-header" style="align-items: center; display: flex; justify-content: space-between;">
+             <div class="brand">
+               <img src="https://www.tenaquarium.com/logo.png" style="height: 50px; width: auto; object-fit: contain;" alt="TENAQUARIUM Logo" />
+             </div>
              <div class="title">INVOICE</div>
           </div>
           <div class="details">
