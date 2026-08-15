@@ -6,6 +6,9 @@ import Testimonials from '../components/Testimonials';
 import Loader from '../components/Loader';
 import api from '../utils/api';
 import { Fish, ShieldAlert, Award, Zap, Compass } from 'lucide-react';
+import plantedTankImg from '../assets/planted_tank.png';
+import marineTankImg from '../assets/marine_tank.png';
+import officeTankImg from '../assets/office_tank.png';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -148,7 +151,7 @@ const Home = () => {
           {/* Card 1: Planted Tank */}
           <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ height: '200px', borderRadius: '12px', overflow: 'hidden' }}>
-              <img src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600" alt="Planted Tank Setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={plantedTankImg} alt="Planted Tank Setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)', margin: '0' }}>Planted Tank Setup</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', flexGrow: 1, margin: '0', lineHeight: '1.5' }}>
@@ -172,7 +175,7 @@ const Home = () => {
           {/* Card 2: Marine Tank */}
           <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ height: '200px', borderRadius: '12px', overflow: 'hidden' }}>
-              <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600" alt="Marine Reef Tank" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={marineTankImg} alt="Marine Reef Tank" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)', margin: '0' }}>Marine Tank Setup</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', flexGrow: 1, margin: '0', lineHeight: '1.5' }}>
@@ -196,7 +199,7 @@ const Home = () => {
           {/* Card 3: Office Tank */}
           <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ height: '200px', borderRadius: '12px', overflow: 'hidden' }}>
-              <img src="https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=600" alt="Office Tank Setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={officeTankImg} alt="Office Tank Setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)', margin: '0' }}>Office Desktop Tank</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', flexGrow: 1, margin: '0', lineHeight: '1.5' }}>
