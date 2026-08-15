@@ -925,7 +925,7 @@ const Checkout = () => {
                   Verifying Payment
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1.2rem', lineHeight: '1.4' }}>
-                  Screenshot proof submitted. The admin is verifying your transaction. Please do not close this website.
+                  Payment processing please wait...
                 </p>
                 <div style={{ background: 'rgba(14, 165, 233, 0.04)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid var(--border-color)', display: 'inline-block' }}>
                   Time Remaining: <strong>{Math.floor(timerSeconds / 60)}:{timerSeconds % 60 < 10 ? '0' : ''}{timerSeconds % 60}</strong>
