@@ -1,1 +1,7 @@
-{\n \name\: \tenaquarium-frontend\,\n \compatibility_date\: \2026-08-15\,\n \assets\: {\n \directory\: \./dist\\n }\n}
+{
+  "name": "tenaquarium-frontend",
+  "compatibility_date": "2026-08-15",
+  "assets": {
+    "directory": "./dist"
+  }
+}

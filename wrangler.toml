@@ -1,5 +1,5 @@
-name = " tenaquarium-frontend\
-compatibility_date = \2026-08-15\
+name = "tenaquarium-frontend"
+compatibility_date = "2026-08-15"
 
 [assets]
-directory = \./dist\
+directory = "./dist"
