@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './Home.module.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import Testimonials from '../components/Testimonials';
 import Loader from '../components/Loader';
@@ -273,9 +273,14 @@ const Home = () => {
           </p>
         ) : (
           <div ref={latestScrollRef} className={styles['products-scroll-row']}>
-            {featuredProducts.map((product) => (
-              <div key={product._id} style={{ flex: '0 0 320px' }}>
-                <ProductCard product={product} />
+            {featuredProducts.slice(0, 10).map((product) => (
+              <div key={product._id} className={styles['carousel-item']}>
+                <Link to={`/products/${product._id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
+                  <img 
+                    src={product.images && product.images[0] ? product.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500'} 
+                    alt={product.productName} 
+                  />
+                </Link>
               </div>
             ))}
           </div>
@@ -293,9 +298,14 @@ const Home = () => {
           </p>
         ) : (
           <div ref={popularScrollRef} className={styles['products-scroll-row']}>
-            {popularProducts.map((product) => (
-              <div key={product._id} style={{ flex: '0 0 320px' }}>
-                <ProductCard product={product} />
+            {popularProducts.slice(0, 10).map((product) => (
+              <div key={product._id} className={styles['carousel-item']}>
+                <Link to={`/products/${product._id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
+                  <img 
+                    src={product.images && product.images[0] ? product.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500'} 
+                    alt={product.productName} 
+                  />
+                </Link>
               </div>
             ))}
           </div>
