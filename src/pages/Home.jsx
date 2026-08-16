@@ -58,8 +58,8 @@ const Home = () => {
     const fetchLatestProducts = async () => {
       try {
         const res = await api.get('/products?sort=newest');
-        // Slice first 8 products
-        setFeaturedProducts(res.data.slice(0, 8));
+        // Slice first 6 products
+        setFeaturedProducts(res.data.slice(0, 6));
       } catch (error) {
         console.error('Error fetching home products', error);
       } finally {
