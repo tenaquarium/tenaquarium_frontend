@@ -105,8 +105,13 @@ const Home = () => {
         const res = await api.get('/products?sort=newest');
         setFeaturedProducts(res.data);
         
-        // Sort products by rating for popular list
-        const sortedPopular = [...res.data].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+        // Sort products by soldCount descending, fallback to averageRating
+        const sortedPopular = [...res.data].sort((a, b) => {
+          if ((b.soldCount || 0) !== (a.soldCount || 0)) {
+            return (b.soldCount || 0) - (a.soldCount || 0);
+          }
+          return (b.averageRating || 0) - (a.averageRating || 0);
+        });
         setPopularProducts(sortedPopular);
       } catch (error) {
         console.error('Error fetching home products', error);
@@ -162,18 +167,83 @@ const Home = () => {
         </div>
       </header>
 
-      {/* Campaign Offers Banner Ticker */}
-      {activeOffers.length > 0 && (
-        <div className={styles['offers-banner']}>
-          <div className={styles['offers-track']}>
-            {[...activeOffers, ...activeOffers, ...activeOffers].map((offer, idx) => (
-              <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
-                <Zap size={16} style={{ color: '#eab308' }} /> {offer}
-              </span>
+      {/* Special Campaign Offers Box */}
+      <div 
+        className="glass-panel" 
+        style={{ 
+          margin: '2rem 5% 0', 
+          padding: '1.5rem', 
+          borderRadius: '16px', 
+          border: '1px solid rgba(245, 158, 11, 0.3)', 
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
+          <Zap size={22} style={{ color: 'var(--warning)', filter: 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.5))' }} />
+          <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0, color: 'var(--text-main)', letterSpacing: '0.5px' }}>
+            Exclusive Store Offers & Deals
+          </h3>
+        </div>
+
+        {activeOffers.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {dealers.filter(d => d.customOfferText || d.discountPercentage > 0).map((dealer, idx) => (
+              <div 
+                key={dealer._id || idx}
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '0.8rem 1rem', 
+                  borderRadius: '10px', 
+                  background: 'rgba(255, 255, 255, 0.03)', 
+                  border: '1px solid rgba(255, 255, 255, 0.05)'
+                }}
+              >
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{dealer.businessName}</strong>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {dealer.customOfferText || `Flat ${dealer.discountPercentage}% discount on all products!`}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/products')} 
+                  className="btn btn-primary"
+                  style={{ padding: '4px 12px', fontSize: '0.75rem' }}
+                >
+                  View Deals
+                </button>
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div 
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '1rem',
+              padding: '0.5rem 0 0 0'
+            }}
+          >
+            <div style={{ maxWidth: '75%' }}>
+              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                Buy directly from certified local aquarium stores and save big. Chat directly with dealers to claim custom wholesale quotes and custom setup combo offers!
+              </p>
+            </div>
+            <button 
+              onClick={() => navigate('/custom-setups')} 
+              className="btn btn-secondary"
+              style={{ padding: '0.6rem 1.2rem', fontSize: '0.8rem' }}
+            >
+              Consult Designers
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Categories Section */}
       <section style={{ padding: '2rem 5%' }}>
