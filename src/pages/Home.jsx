@@ -18,6 +18,49 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [aquaMarineDealerId, setAquaMarineDealerId] = useState('');
 
+  // Reusable hook-like auto scroll function for HTML containers
+  const createAutoScrollRef = (dependencies) => {
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+
+      let timer = null;
+      let isHovered = false;
+
+      const startScrolling = () => {
+        timer = setInterval(() => {
+          if (isHovered) return;
+          el.scrollLeft += 1;
+          
+          // Reset to beginning when it reaches close to the end
+          if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 4) {
+            el.scrollLeft = 0;
+          }
+        }, 25); // Smooth interval
+      };
+
+      const handleMouseEnter = () => { isHovered = true; };
+      const handleMouseLeave = () => { isHovered = false; };
+
+      el.addEventListener('mouseenter', handleMouseEnter);
+      el.addEventListener('mouseleave', handleMouseLeave);
+      startScrolling();
+
+      return () => {
+        clearInterval(timer);
+        if (el) {
+          el.removeEventListener('mouseenter', handleMouseEnter);
+          el.removeEventListener('mouseleave', handleMouseLeave);
+        }
+      };
+    }, dependencies);
+    return ref;
+  };
+
+  const latestScrollRef = createAutoScrollRef([featuredProducts]);
+  const popularScrollRef = createAutoScrollRef([popularProducts]);
+
   const iconMap = {
     Fish: <Fish size={24} />,
     Zap: <Zap size={24} />,
@@ -159,14 +202,12 @@ const Home = () => {
             No products available at the moment.
           </p>
         ) : (
-          <div className={styles['marquee-container']}>
-            <div className={styles['marquee-track']}>
-              {[...featuredProducts.slice(0, 10), ...featuredProducts.slice(0, 10)].map((product, idx) => (
-                <div key={`${product._id}-${idx}`} className={styles['marquee-item']}>
-                  <ProductCard product={product} />
-                </div>
-              ))}
-            </div>
+          <div ref={latestScrollRef} className={styles['products-scroll-row']}>
+            {featuredProducts.map((product) => (
+              <div key={product._id} style={{ flex: '0 0 320px' }}>
+                <ProductCard product={product} />
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -181,14 +222,12 @@ const Home = () => {
             No products available at the moment.
           </p>
         ) : (
-          <div className={styles['marquee-container']}>
-            <div className={styles['marquee-track']} style={{ animationDirection: 'reverse', animationDuration: '30s' }}>
-              {[...popularProducts.slice(0, 10), ...popularProducts.slice(0, 10)].map((product, idx) => (
-                <div key={`${product._id}-popular-${idx}`} className={styles['marquee-item']}>
-                  <ProductCard product={product} />
-                </div>
-              ))}
-            </div>
+          <div ref={popularScrollRef} className={styles['products-scroll-row']}>
+            {popularProducts.map((product) => (
+              <div key={product._id} style={{ flex: '0 0 320px' }}>
+                <ProductCard product={product} />
+              </div>
+            ))}
           </div>
         )}
       </section>
