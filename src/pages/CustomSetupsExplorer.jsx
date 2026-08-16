@@ -146,9 +146,6 @@ const CustomSetupsExplorer = () => {
                           alt={pkg.name} 
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                         />
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15, 23, 42, 0.75)', color: '#10b981', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', backdropFilter: 'blur(4px)' }}>
-                          Estimated: {pkg.estPrice}
-                        </div>
                       </div>
 
                       <div style={{ padding: '1.2rem', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
