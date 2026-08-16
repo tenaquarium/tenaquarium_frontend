@@ -172,6 +172,7 @@ const Contact = () => {
               required
               value={formData.name}
               onChange={handleChange}
+              readOnly={!!user}
               className="form-control"
               placeholder="e.g. John Doe"
             />
@@ -186,6 +187,7 @@ const Contact = () => {
               required
               value={formData.email}
               onChange={handleChange}
+              readOnly={!!user}
               className="form-control"
               placeholder="e.g. john@example.com"
             />

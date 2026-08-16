@@ -6,6 +6,15 @@ import Loader from '../components/Loader';
 import api from '../utils/api';
 import { Search, Star, SlidersHorizontal, RefreshCw } from 'lucide-react';
 
+const shuffleArray = (array) => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
@@ -63,7 +72,21 @@ const Products = () => {
         if (sort) queryParams.append('sort', sort);
 
         const res = await api.get(`/products?${queryParams.toString()}`);
-        setProducts(res.data);
+        
+        const hasFilters = 
+          (keyword && keyword.trim() !== '') || 
+          (category && category !== 'All') || 
+          priceMin || 
+          priceMax || 
+          rating || 
+          (sort && sort !== 'newest') ||
+          (selectedVendor && selectedVendor !== 'All');
+
+        if (!hasFilters) {
+          setProducts(shuffleArray(res.data));
+        } else {
+          setProducts(res.data);
+        }
       } catch (error) {
         console.error('Error fetching filtered products', error);
       } finally {

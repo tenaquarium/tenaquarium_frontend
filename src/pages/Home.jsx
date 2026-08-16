@@ -132,7 +132,7 @@ const Home = () => {
             No products available at the moment.
           </p>
         ) : (
-          <div className={styles['products-scroll-row']}>
+          <div className={styles['products-grid']}>
             {featuredProducts.map((product) => (
               <ProductCard key={product._id} product={product} />
             ))}
