@@ -165,3 +165,67 @@
     font-size: 0.78rem !important;
   }
 }
+
+/* Infinite Marquee Ticker Styles */
+.marquee-container {
+  overflow: hidden;
+  width: 100%;
+  padding: 1.5rem 0;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  gap: 2rem;
+  width: max-content;
+  animation: marqueeScroll 25s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.marquee-item {
+  flex: 0 0 320px;
+}
+
+@keyframes marqueeScroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(calc(-50% - 1rem), 0, 0);
+  }
+}
+
+/* Horizontal offers ticket banner style */
+.offers-banner {
+  background: linear-gradient(90deg, #0284c7, #0f766e);
+  color: white;
+  padding: 0.8rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  overflow: hidden;
+  position: relative;
+  white-space: nowrap;
+  border-radius: 12px;
+  margin: 1.5rem 5% 0;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+}
+
+.offers-track {
+  display: inline-flex;
+  gap: 4rem;
+  animation: bannerMarquee 40s linear infinite;
+}
+
+@keyframes bannerMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}

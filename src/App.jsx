@@ -35,6 +35,8 @@ import AdminDashboard from './pages/AdminDashboard';
 
 // Public Tracking Page
 import TrackShipment from './pages/TrackShipment';
+import CustomSetupsExplorer from './pages/CustomSetupsExplorer';
+import Chats from './pages/Chats';
 
 function App() {
   useEffect(() => {
@@ -74,6 +76,7 @@ function App() {
               <Route path="/dealers/:id" element={<DealerProfile />} />
               <Route path="/track" element={<TrackShipment />} />
               <Route path="/track/:trackingNumber" element={<TrackShipment />} />
+              <Route path="/custom-setups" element={<CustomSetupsExplorer />} />
 
               {/* Customer Routes */}
               <Route
@@ -81,6 +84,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['customer', 'dealer']}>
                     <CustomerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chats"
+                element={
+                  <ProtectedRoute allowedRoles={['customer', 'dealer', 'admin']}>
+                    <Chats />
                   </ProtectedRoute>
                 }
               />

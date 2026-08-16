@@ -66,17 +66,21 @@ const ProductCard = ({ product }) => {
     try {
       await api.post('/cart', {
         productId: product._id,
-        quantity: 1
+        quantity: product.minQuantity || 2
       });
       // Fire cart update event for Navbar
       window.dispatchEvent(new Event('cart-updated'));
-      alert(`${product.productName} added to cart!`);
+      alert(`${product.productName} added to cart! (Minimum quantity: ${product.minQuantity || 2} items)`);
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to add item to cart.');
     } finally {
       setLoadingCart(false);
     }
   };
+
+  const offer = product.dealerOffer;
+  const discount = offer ? offer.discountPercentage : 0;
+  const finalPrice = discount > 0 ? product.price * (1 - discount / 100) : product.price;
 
   return (
     <div className={`glass-panel ${styles['product-card']}`}>
@@ -115,13 +119,33 @@ const ProductCard = ({ product }) => {
         </span>
 
         <div className={styles['product-footer']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0, padding: 0 }}>
-          <span className={styles['product-price']} style={{ fontSize: '1rem', fontWeight: '800' }}>₹{product.price.toLocaleString()}</span>
+          <div>
+            {discount > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <s style={{ color: '#ef4444', fontSize: '0.8rem' }}>₹{product.price.toLocaleString()}</s>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--warning)', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 4px', borderRadius: '4px' }}>
+                    {discount}% OFF
+                  </span>
+                </div>
+                <span className={styles['product-price']} style={{ fontSize: '1rem', fontWeight: '800', color: '#10b981' }}>₹{finalPrice.toLocaleString()}</span>
+              </div>
+            ) : (
+              <span className={styles['product-price']} style={{ fontSize: '1rem', fontWeight: '800' }}>₹{product.price.toLocaleString()}</span>
+            )}
+          </div>
           {product.stock > 0 ? (
             <span className={`${styles['stock-status']} ${styles['stock-in']}`} style={{ fontSize: '0.7rem', padding: '2px 6px' }}>In ({product.stock})</span>
           ) : (
             <span className={`${styles['stock-status']} ${styles['stock-out']}`} style={{ fontSize: '0.7rem', padding: '2px 6px' }}>Out of Stock</span>
           )}
         </div>
+
+        {offer?.customOfferText && (
+          <div style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--primary)', marginTop: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={offer.customOfferText}>
+            🏷️ {offer.customOfferText}
+          </div>
+        )}
 
         {product.stock > 0 && (!user || user.role === 'customer' || (user.role === 'dealer' && (product.dealerId?._id || product.dealerId)?.toString() !== user._id.toString())) && (
           <button

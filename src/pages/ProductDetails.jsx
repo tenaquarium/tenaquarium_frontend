@@ -44,6 +44,7 @@ const ProductDetails = () => {
         const prodRes = await api.get(`/products/${id}`);
         const productData = prodRes.data;
         setProduct(productData);
+        setQuantity(productData.minQuantity || 2);
         
         const revRes = await api.get(`/reviews/product/${id}`);
         setReviews(revRes.data);
@@ -90,8 +91,9 @@ const ProductDetails = () => {
   };
 
   const handleQtyChange = (val) => {
+    const minQty = product?.minQuantity || 2;
     const newQty = quantity + val;
-    if (newQty >= 1 && newQty <= (product?.stock || 1)) {
+    if (newQty >= minQty && newQty <= (product?.stock || minQty)) {
       setQuantity(newQty);
     }
   };
@@ -320,7 +322,36 @@ const ProductDetails = () => {
               </span>
             </div>
 
-            <div className={`details-price ${styles.productPrice}`}>₹{product.price.toLocaleString()}</div>
+            {(() => {
+              const discount = product?.dealerInfo?.discountPercentage || 0;
+              const finalPrice = discount > 0 ? product.price * (1 - discount / 100) : product.price;
+              const customOffer = product?.dealerInfo?.customOfferText || '';
+              return (
+                <>
+                  {discount > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <s style={{ color: '#ef4444', fontSize: '1.1rem' }}>₹{product.price.toLocaleString()}</s>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--warning)', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                          {discount}% OFF
+                        </span>
+                      </div>
+                      <div className={`details-price ${styles.productPrice}`} style={{ color: '#10b981', fontSize: '2rem', margin: 0 }}>
+                        ₹{finalPrice.toLocaleString()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`details-price ${styles.productPrice}`}>₹{product.price.toLocaleString()}</div>
+                  )}
+
+                  {customOffer && (
+                    <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '1.2rem', textTransform: 'uppercase' }}>
+                      🏷️ Offer: {customOffer}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <p className={`details-desc ${styles.productDesc}`}>{product.description}</p>
 
@@ -346,23 +377,50 @@ const ProductDetails = () => {
 
             {/* Purchase Controls */}
             {product.stock > 0 && !(user && user.role === 'dealer' && (product.dealerId?._id || product.dealerId)?.toString() === user._id.toString()) && (
-              <div className={styles.productPurchaseRow}>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={addingToCart}
-                  className={`btn btn-primary ${styles.btnAddToCart}`}
-                >
-                  <ShoppingCart size={18} />
-                  {addingToCart ? 'Adding to Cart...' : 'Add to Cart'}
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.5rem', width: '100%' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Minimum Order Quantity: <strong>{product.minQuantity || 2} items</strong>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
+                    <button 
+                      type="button"
+                      onClick={() => handleQtyChange(-1)} 
+                      style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      -
+                    </button>
+                    <span style={{ padding: '0.5rem 1.2rem', minWidth: '40px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                      {quantity}
+                    </span>
+                    <button 
+                      type="button"
+                      onClick={() => handleQtyChange(1)} 
+                      style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-                <button
-                  onClick={toggleWishlist}
-                  className={`btn btn-secondary ${styles.btnWishlist} ${isInWishlist ? styles.active : ''}`}
-                  title={isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                >
-                  <Heart size={20} fill={isInWishlist ? 'currentColor' : 'none'} />
-                </button>
+                <div className={styles.productPurchaseRow} style={{ marginTop: '0.5rem' }}>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={addingToCart}
+                    className={`btn btn-primary ${styles.btnAddToCart}`}
+                  >
+                    <ShoppingCart size={18} />
+                    {addingToCart ? 'Adding to Cart...' : 'Add to Cart'}
+                  </button>
+
+                  <button
+                    onClick={toggleWishlist}
+                    className={`btn btn-secondary ${styles.btnWishlist} ${isInWishlist ? styles.active : ''}`}
+                    title={isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                  >
+                    <Heart size={20} fill={isInWishlist ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

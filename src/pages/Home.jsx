@@ -13,6 +13,8 @@ import officeTankImg from '../assets/office_tank.png';
 const Home = () => {
   const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [popularProducts, setPopularProducts] = useState([]);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [aquaMarineDealerId, setAquaMarineDealerId] = useState('');
 
@@ -58,8 +60,11 @@ const Home = () => {
     const fetchLatestProducts = async () => {
       try {
         const res = await api.get('/products?sort=newest');
-        // Slice first 6 products
-        setFeaturedProducts(res.data.slice(0, 6));
+        setFeaturedProducts(res.data);
+        
+        // Sort products by rating for popular list
+        const sortedPopular = [...res.data].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+        setPopularProducts(sortedPopular);
       } catch (error) {
         console.error('Error fetching home products', error);
       } finally {
@@ -70,12 +75,13 @@ const Home = () => {
     const fetchDealers = async () => {
       try {
         const res = await api.get('/dealers/approved/public');
+        setDealers(res.data);
         const match = res.data.find(d => d.businessName === 'Aqua Marine Shop');
         if (match) {
-          setAquaMarineDealerId(match._id);
+          setAquaMarineDealerId(match._id || match.userId?._id || match.userId);
         }
       } catch (err) {
-        console.error('Failed to load dealer ID', err);
+        console.error('Failed to load dealer details', err);
       }
     };
 
@@ -84,8 +90,16 @@ const Home = () => {
   }, []);
 
   const handleCategoryClick = (categoryName) => {
-    navigate(`/products?category=${encodeURIComponent(categoryName)}`);
+    if (categoryName === 'Custom Tank Setup') {
+      navigate('/custom-setups');
+    } else {
+      navigate(`/products?category=${encodeURIComponent(categoryName)}`);
+    }
   };
+
+  const activeOffers = dealers
+    .map(d => d.customOfferText ? `${d.businessName}: ${d.customOfferText}` : d.discountPercentage > 0 ? `${d.businessName}: Flat ${d.discountPercentage}% OFF on all products!` : '')
+    .filter(Boolean);
 
   return (
     <div className="main-content">
@@ -105,6 +119,19 @@ const Home = () => {
         </div>
       </header>
 
+      {/* Campaign Offers Banner Ticker */}
+      {activeOffers.length > 0 && (
+        <div className={styles['offers-banner']}>
+          <div className={styles['offers-track']}>
+            {[...activeOffers, ...activeOffers, ...activeOffers].map((offer, idx) => (
+              <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Zap size={16} style={{ color: '#eab308' }} /> {offer}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Categories Section */}
       <section style={{ padding: '2rem 5%' }}>
         <h2 className={styles['section-title']}>Shop By Category</h2>
@@ -122,9 +149,9 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section style={{ padding: '2rem 5%' }}>
-        <h2 className={styles['section-title']}>Latest Arrivals</h2>
+      {/* Featured Products (Latest Arrivals Carousel) */}
+      <section style={{ padding: '2rem 0' }}>
+        <h2 className={styles['section-title']} style={{ padding: '0 5%' }}>Latest Arrivals</h2>
         {loading ? (
           <Loader message="Swimming to get latest items..." />
         ) : featuredProducts.length === 0 ? (
@@ -132,10 +159,36 @@ const Home = () => {
             No products available at the moment.
           </p>
         ) : (
-          <div className={styles['products-grid']}>
-            {featuredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
+          <div className={styles['marquee-container']}>
+            <div className={styles['marquee-track']}>
+              {[...featuredProducts.slice(0, 10), ...featuredProducts.slice(0, 10)].map((product, idx) => (
+                <div key={`${product._id}-${idx}`} className={styles['marquee-item']}>
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Popular Products Carousel */}
+      <section style={{ padding: '2rem 0', background: 'rgba(255, 255, 255, 0.01)' }}>
+        <h2 className={styles['section-title']} style={{ padding: '0 5%' }}>Popular Products</h2>
+        {loading ? (
+          <Loader message="Swimming to get popular items..." />
+        ) : popularProducts.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+            No products available at the moment.
+          </p>
+        ) : (
+          <div className={styles['marquee-container']}>
+            <div className={styles['marquee-track']} style={{ animationDirection: 'reverse', animationDuration: '30s' }}>
+              {[...popularProducts.slice(0, 10), ...popularProducts.slice(0, 10)].map((product, idx) => (
+                <div key={`${product._id}-popular-${idx}`} className={styles['marquee-item']}>
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -223,7 +276,7 @@ const Home = () => {
 
         <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
           <button 
-            onClick={() => navigate('/products?category=Custom%20Tank%20Setup')} 
+            onClick={() => navigate('/custom-setups')} 
             className="btn btn-primary"
             style={{ padding: '0.8rem 2.5rem', fontSize: '1.05rem' }}
           >

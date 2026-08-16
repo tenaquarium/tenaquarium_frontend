@@ -39,6 +39,8 @@ const DealerDashboard = () => {
   const [accountNumber, setAccountNumber] = useState(user?.dealerProfile?.accountNumber || '');
   const [ifscCode, setIfscCode] = useState(user?.dealerProfile?.ifscCode || '');
   const [branchName, setBranchName] = useState(user?.dealerProfile?.branchName || '');
+  const [discountPercentage, setDiscountPercentage] = useState(user?.dealerProfile?.discountPercentage || 0);
+  const [customOfferText, setCustomOfferText] = useState(user?.dealerProfile?.customOfferText || '');
   const [showShipModal, setShowShipModal] = useState(false);
   const [shipOrder, setShipOrder] = useState(null);
   const [shipStep, setShipStep] = useState(1);
@@ -129,6 +131,7 @@ const DealerDashboard = () => {
   const [prodStock, setProdStock] = useState('');
   const [prodImages, setProdImages] = useState([]);
   const [prodIsReturnable, setProdIsReturnable] = useState(true);
+  const [prodMinQty, setProdMinQty] = useState('2');
 
   const [categories, setCategories] = useState([
     'Aquarium Fish',
@@ -363,6 +366,8 @@ const DealerDashboard = () => {
         accountNumber,
         ifscCode,
         branchName,
+        discountPercentage: Number(discountPercentage) || 0,
+        customOfferText,
       };
 
       await updateProfile(updatedData);
@@ -814,6 +819,7 @@ const DealerDashboard = () => {
     setProdStock('');
     setProdImages([]);
     setProdIsReturnable(true);
+    setProdMinQty('2');
     setShowProductModal(true);
   };
 
@@ -828,6 +834,7 @@ const DealerDashboard = () => {
     setProdStock(product.stock.toString());
     setProdImages(product.images || []);
     setProdIsReturnable(product.isReturnable !== undefined ? product.isReturnable : true);
+    setProdMinQty((product.minQuantity || 2).toString());
     setShowProductModal(true);
   };
 
@@ -938,6 +945,7 @@ Aquarium Care & Environment Requirements:
       stock: Number(prodStock),
       images: parsedImages.length > 0 ? parsedImages : undefined,
       isReturnable: prodIsReturnable,
+      minQuantity: Number(prodMinQty) || 2,
     };
 
     try {
@@ -2084,6 +2092,37 @@ Aquarium Care & Environment Requirements:
                       />
                     </div>
                   </div>
+
+                  {/* Offers & Promotions Panel */}
+                  <div className={`glass-panel ${styles['settings-col-right']}`} style={{ padding: '2rem', marginTop: '2rem' }}>
+                    <h3 className={styles['settings-heading']} style={{ color: 'var(--warning)' }}>
+                      Offers & Promotions
+                    </h3>
+                    <div className="form-group">
+                      <label className="form-label">Global Discount Percentage (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={discountPercentage}
+                        onChange={(e) => setDiscountPercentage(e.target.value)}
+                        placeholder="e.g. 10"
+                        className="form-control"
+                      />
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>This discount will be applied to all your products. Set to 0 to disable.</span>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Custom Offer Text / Campaign Message</label>
+                      <input
+                        type="text"
+                        value={customOfferText}
+                        onChange={(e) => setCustomOfferText(e.target.value)}
+                        placeholder="e.g. Buy 3 Get 1 Free"
+                        className="form-control"
+                      />
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>Enter custom promotional text (e.g. "Buy 3 Get 1 Free"). Leave empty to disable.</span>
+                    </div>
+                  </div>
                 </div>
 
                 <button type="submit" className={`btn btn-primary ${styles['settings-submit-btn']}`}>
@@ -2884,6 +2923,19 @@ Aquarium Care & Environment Requirements:
                   onChange={(e) => setProdStock(e.target.value)}
                   className="form-control"
                   placeholder="e.g. 20"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Minimum Purchase Quantity for Customers</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={prodMinQty}
+                  onChange={(e) => setProdMinQty(e.target.value)}
+                  className="form-control"
+                  placeholder="e.g. 2"
                 />
               </div>
 

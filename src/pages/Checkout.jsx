@@ -10,6 +10,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [cart, setCart] = useState(null);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   
@@ -231,6 +232,10 @@ const Checkout = () => {
           return;
         }
         setCart(res.data);
+        
+        // Fetch public dealers to check discounts
+        const dealersRes = await api.get('/dealers/approved/public');
+        setDealers(dealersRes.data);
         
         // Calculate box weight
         const weight = calculateCartWeight(res.data.products);
@@ -553,7 +558,44 @@ const Checkout = () => {
   }
 
   const items = cart?.products || [];
-  const subtotal = items.reduce((sum, item) => sum + (item.productId?.price || 0) * item.quantity, 0);
+
+  const getDealerOffer = (dealerId) => {
+    const dealer = dealers.find(d => (d.userId?._id || d.userId || '').toString() === (dealerId || '').toString());
+    return dealer ? {
+      discountPercentage: dealer.discountPercentage || 0,
+      customOfferText: dealer.customOfferText || '',
+    } : { discountPercentage: 0, customOfferText: '' };
+  };
+
+  const getSubtotalWithOffers = () => {
+    let sub = 0;
+    items.forEach(item => {
+      const prod = item.productId;
+      if (!prod) return;
+
+      const offer = getDealerOffer(prod.dealerId);
+      const discount = offer.discountPercentage;
+      const customOfferText = offer.customOfferText || '';
+
+      const unitPrice = prod.price;
+      const discountedUnitPrice = discount > 0 ? unitPrice * (1 - discount / 100) : unitPrice;
+
+      let itemCost = discountedUnitPrice * item.quantity;
+
+      // Buy 3 Get 1 Free Promo check
+      const isBuy3Get1 = customOfferText.toLowerCase().includes('buy 3 get 1') || customOfferText.toLowerCase().includes('buy3 get1');
+      if (isBuy3Get1 && item.quantity >= 3) {
+        const freeCount = Math.floor(item.quantity / 3);
+        const billedQty = item.quantity - freeCount;
+        itemCost = discountedUnitPrice * billedQty;
+      }
+
+      sub += itemCost;
+    });
+    return sub;
+  };
+
+  const subtotal = getSubtotalWithOffers();
   const packingCharge = 40;
   const totalPayable = subtotal + packingCharge;
 
@@ -678,14 +720,47 @@ const Checkout = () => {
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '240px', overflowY: 'auto', marginBottom: '1.5rem' }}>
-            {items.map((item) => (
-              <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: '1', WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: '200px' }}>
-                  {item.productId?.productName} x {item.quantity}
-                </span>
-                <span>₹{((item.productId?.price || 0) * item.quantity).toLocaleString()}</span>
-              </div>
-            ))}
+            {items.map((item) => {
+              const prod = item.productId;
+              if (!prod) return null;
+              
+              const offer = getDealerOffer(prod.dealerId);
+              const discount = offer.discountPercentage;
+              const customOfferText = offer.customOfferText || '';
+
+              const unitPrice = prod.price;
+              const discountedUnitPrice = discount > 0 ? unitPrice * (1 - discount / 100) : unitPrice;
+
+              let itemCost = discountedUnitPrice * item.quantity;
+              let promoText = '';
+
+              const isBuy3Get1 = customOfferText.toLowerCase().includes('buy 3 get 1') || customOfferText.toLowerCase().includes('buy3 get1');
+              if (isBuy3Get1 && item.quantity >= 3) {
+                const freeCount = Math.floor(item.quantity / 3);
+                const billedQty = item.quantity - freeCount;
+                itemCost = discountedUnitPrice * billedQty;
+                promoText = `(Buy 3 Get 1: ${freeCount} Free)`;
+              }
+
+              return (
+                <div key={item._id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                    <span style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: '1', WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: '220px' }} title={prod.productName}>
+                      {prod.productName} x {item.quantity}
+                    </span>
+                    <span style={{ fontWeight: '600' }}>₹{itemCost.toLocaleString()}</span>
+                  </div>
+                  {(discount > 0 || promoText) && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#10b981' }}>
+                      <span>
+                        {discount > 0 ? `${discount}% Dealer Discount` : ''} {promoText}
+                      </span>
+                      {discount > 0 && <s style={{ color: '#ef4444' }}>₹{(prod.price * item.quantity).toLocaleString()}</s>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className={styles['summary-row']}>

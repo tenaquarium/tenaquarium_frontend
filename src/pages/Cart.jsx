@@ -10,21 +10,25 @@ const Cart = () => {
   const navigate = useNavigate();
   const { showConfirm } = useAlert();
   const [cart, setCart] = useState(null);
+  const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchCart = async () => {
+  const fetchCartAndDealers = async () => {
     try {
-      const res = await api.get('/cart');
-      setCart(res.data);
+      const cartRes = await api.get('/cart');
+      setCart(cartRes.data);
+      
+      const dealersRes = await api.get('/dealers/approved/public');
+      setDealers(dealersRes.data);
     } catch (error) {
-      console.error('Error fetching cart', error);
+      console.error('Error fetching cart details', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCart();
+    fetchCartAndDealers();
   }, []);
 
   const handleQuantityChange = async (productId, newQty) => {
@@ -60,12 +64,63 @@ const Cart = () => {
     }
   };
 
+  const getDealerOffer = (dealerId) => {
+    const dealer = dealers.find(d => (d.userId?._id || d.userId || '').toString() === (dealerId || '').toString());
+    return dealer ? {
+      discountPercentage: dealer.discountPercentage || 0,
+      customOfferText: dealer.customOfferText || '',
+      businessName: dealer.businessName
+    } : { discountPercentage: 0, customOfferText: '' };
+  };
+
   if (loading) {
     return <Loader message="Loading your cart items..." />;
   }
 
   const items = cart?.products || [];
-  const subtotal = items.reduce((sum, item) => sum + (item.productId?.price || 0) * item.quantity, 0);
+
+  const getCartTotals = () => {
+    let total = 0;
+    const itemsWithOffers = items.map(item => {
+      const prod = item.productId;
+      if (!prod) return null;
+
+      const offer = getDealerOffer(prod.dealerId);
+      const discount = offer.discountPercentage;
+      const customOfferText = offer.customOfferText || '';
+      
+      const unitPrice = prod.price;
+      const discountedUnitPrice = discount > 0 ? unitPrice * (1 - discount / 100) : unitPrice;
+      
+      let itemSubtotal = discountedUnitPrice * item.quantity;
+      let promoAppliedText = '';
+      
+      // Buy 3 Get 1 Free Check
+      const isBuy3Get1 = customOfferText.toLowerCase().includes('buy 3 get 1') || customOfferText.toLowerCase().includes('buy3 get1');
+      if (isBuy3Get1 && item.quantity >= 3) {
+        const freeCount = Math.floor(item.quantity / 3);
+        const billedQty = item.quantity - freeCount;
+        itemSubtotal = discountedUnitPrice * billedQty;
+        promoAppliedText = `🎉 Buy 3 Get 1 Free Applied! ${freeCount} item${freeCount > 1 ? 's' : ''} free (Saved ₹${(discountedUnitPrice * freeCount).toLocaleString()})`;
+      } else if (isBuy3Get1 && item.quantity === 2) {
+        promoAppliedText = `💡 Add 1 more to get 1 Free!`;
+      }
+      
+      total += itemSubtotal;
+      return {
+        ...item,
+        discount,
+        discountedUnitPrice,
+        itemSubtotal,
+        promoAppliedText,
+        isBuy3Get1
+      };
+    }).filter(Boolean);
+
+    return { itemsWithOffers, total };
+  };
+
+  const { itemsWithOffers, total } = getCartTotals();
 
   if (items.length === 0) {
     return (
@@ -91,9 +146,11 @@ const Cart = () => {
       <div className={styles['cart-layout']}>
         {/* Left: Cart Items List */}
         <div className={styles['cart-items-panel']}>
-          {items.map((item) => {
+          {itemsWithOffers.map((item) => {
             const prod = item.productId;
             if (!prod) return null;
+
+            const minQty = prod.minQuantity || 2;
 
             return (
               <div key={item._id} className={`glass-panel ${styles['cart-item']}`}>
@@ -108,25 +165,52 @@ const Cart = () => {
                   <Link to={`/products/${prod._id}`} className={styles['cart-item-name']}>
                     {prod.productName}
                   </Link>
-                  <span className={styles['cart-item-price']}>₹{prod.price.toLocaleString()}</span>
+                  <div>
+                    {item.discount > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <s style={{ color: '#ef4444', fontSize: '0.8rem' }}>₹{prod.price.toLocaleString()}</s>
+                        <span style={{ color: '#10b981', fontWeight: '700', fontSize: '0.9rem' }}>₹{item.discountedUnitPrice.toLocaleString()}</span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--warning)', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 4px', borderRadius: '4px' }}>
+                          {item.discount}% OFF
+                        </span>
+                      </div>
+                    ) : (
+                      <span className={styles['cart-item-price']}>₹{prod.price.toLocaleString()}</span>
+                    )}
+                  </div>
+                  
+                  {item.promoAppliedText && (
+                    <div style={{ fontSize: '0.75rem', fontWeight: '600', color: item.promoAppliedText.includes('🎉') ? '#10b981' : 'var(--warning)', marginTop: '4px' }}>
+                      {item.promoAppliedText}
+                    </div>
+                  )}
                 </div>
 
-                <div className={styles['qty-selector']}>
-                  <button
-                    onClick={() => handleQuantityChange(prod._id, item.quantity - 1)}
-                    disabled={item.quantity <= 1}
-                    className={styles['qty-btn']}
-                  >
-                    -
-                  </button>
-                  <span className={styles['qty-val']}>{item.quantity}</span>
-                  <button
-                    onClick={() => handleQuantityChange(prod._id, item.quantity + 1)}
-                    disabled={item.quantity >= prod.stock}
-                    className={styles['qty-btn']}
-                  >
-                    +
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <div className={styles['qty-selector']}>
+                    <button
+                      onClick={() => handleQuantityChange(prod._id, item.quantity - 1)}
+                      disabled={item.quantity <= minQty}
+                      className={styles['qty-btn']}
+                      title={`Minimum order quantity is ${minQty}`}
+                    >
+                      -
+                    </button>
+                    <span className={styles['qty-val']}>{item.quantity}</span>
+                    <button
+                      onClick={() => handleQuantityChange(prod._id, item.quantity + 1)}
+                      disabled={item.quantity >= prod.stock}
+                      className={styles['qty-btn']}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Min: {minQty}</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Subtotal:</span>
+                  <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>₹{item.itemSubtotal.toLocaleString()}</span>
                 </div>
 
                 <button
@@ -144,7 +228,7 @@ const Cart = () => {
           <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', alignItems: 'center', padding: '1.2rem 1.8rem', borderRadius: '16px' }}>
             <div>
               <span style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>Total Amount:</span>
-              <strong style={{ fontSize: '1.5rem', color: 'var(--secondary)', marginLeft: '0.6rem', fontWeight: '800' }}>₹{subtotal.toLocaleString()}</strong>
+              <strong style={{ fontSize: '1.5rem', color: 'var(--secondary)', marginLeft: '0.6rem', fontWeight: '800' }}>₹{total.toLocaleString()}</strong>
             </div>
             <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
               <button onClick={() => navigate('/products')} className="btn btn-secondary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem' }}>
