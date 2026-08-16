@@ -104,27 +104,17 @@ const Home = () => {
       try {
         const res = await api.get('/products?sort=newest');
         setFeaturedProducts(res.data);
-        
-        // Sort products by:
-        // 1. soldCount (descending)
-        // 2. averageRating (descending)
-        // 3. totalReviews (descending)
-        // 4. Fallback: createdAt (ascending) to show different items if metrics are blank
-        const sortedPopular = [...res.data].sort((a, b) => {
-          if ((b.soldCount || 0) !== (a.soldCount || 0)) {
-            return (b.soldCount || 0) - (a.soldCount || 0);
-          }
-          if ((b.averageRating || 0) !== (a.averageRating || 0)) {
-            return (b.averageRating || 0) - (a.averageRating || 0);
-          }
-          if ((b.totalReviews || 0) !== (a.totalReviews || 0)) {
-            return (b.totalReviews || 0) - (a.totalReviews || 0);
-          }
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        });
-        setPopularProducts(sortedPopular);
       } catch (error) {
-        console.error('Error fetching home products', error);
+        console.error('Error fetching latest products', error);
+      }
+    };
+
+    const fetchPopularProducts = async () => {
+      try {
+        const res = await api.get('/products?sort=popular');
+        setPopularProducts(res.data);
+      } catch (error) {
+        console.error('Error fetching popular products', error);
       } finally {
         setLoading(false);
       }
@@ -144,6 +134,7 @@ const Home = () => {
     };
 
     fetchLatestProducts();
+    fetchPopularProducts();
     fetchDealers();
   }, []);
 
