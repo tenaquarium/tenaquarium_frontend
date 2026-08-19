@@ -36,6 +36,7 @@ import CustomerDashboard from './pages/CustomerDashboard';
 import Cart from './pages/Cart';
 import Wishlist from './pages/Wishlist';
 import Checkout from './pages/Checkout';
+import RefundBankDetails from './pages/RefundBankDetails';
 
 // Dealer Protected Pages
 import DealerDashboard from './pages/DealerDashboard';
@@ -124,6 +125,14 @@ function App() {
                   element={
                     <ProtectedRoute allowedRoles={['customer', 'dealer']}>
                       <Checkout />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/refund-bank-details/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={['customer']}>
+                      <RefundBankDetails />
                     </ProtectedRoute>
                   }
                 />

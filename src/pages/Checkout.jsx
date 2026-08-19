@@ -110,11 +110,8 @@ const Checkout = () => {
           itemWeight = 2.0; // large light: 2.0kg
         }
       } else if (prod.category === 'Aquarium Fish') {
-        if (prod.price < 250) {
-          itemWeight = 0.3; // small cost fish: 0.3kg
-        } else {
-          itemWeight = 1.0; // large fish: 1.0kg
-        }
+        const isPair = (prod.productName || '').toLowerCase().includes('pair');
+        itemWeight = isPair ? 0.28 : 0.14;
       } else if (prod.category === 'Aquarium Plants') {
         itemWeight = 0.3; // plants: 0.3kg
       } else {
@@ -332,7 +329,7 @@ const Checkout = () => {
           weight: totalWeight
         });
 
-        if (res.data.success && res.data.available) {
+        if (res.data.success) {
           setIsZipValid(true);
           setZipError('');
           setCity(res.data.district || '');
@@ -343,15 +340,15 @@ const Checkout = () => {
           
           setAvailableQuotes(res.data.quotes || []);
           if (res.data.quotes && res.data.quotes.length > 0) {
-            setCourierService(`Professional Courier - ${res.data.quotes[0].serviceType}`);
+            setCourierService(res.data.courierName || 'Standard Shipping');
             setDeliveryCharge(res.data.quotes[0].finalAmount);
           } else {
-            setCourierService('');
+            setCourierService('Standard Shipping');
             setDeliveryCharge(0);
           }
         } else {
           setIsZipValid(false);
-          setZipError(res.data.message || 'Professional Courier is not available for this pincode.');
+          setZipError(res.data.message || 'Standard Shipping is not available for this pincode.');
           setCity('');
           setState('');
           setAreasList([]);
@@ -829,11 +826,11 @@ const Checkout = () => {
           <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '1.5rem', border: '1px solid var(--border-color)' }}>
             <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>
               <Truck size={18} />
-              COURIER SERVICE
+              SHIPPING INFORMATION
             </h4>
 
             {courierLoading && (
-              <span style={{ color: 'var(--primary)', fontSize: '0.88rem' }}>Checking courier availability...</span>
+              <span style={{ color: 'var(--primary)', fontSize: '0.88rem' }}>Calculating shipping charges...</span>
             )}
 
             {courierError && (
@@ -844,44 +841,17 @@ const Checkout = () => {
 
             {!zip && !courierLoading && !courierError && (
               <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                Please enter your Pincode above to check available courier services.
+                Please enter your Pincode above to calculate shipping.
               </div>
             )}
 
-            {isZipValid && !courierLoading && availableQuotes.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Select Courier Service</label>
-                  <select
-                    className="form-control"
-                    value="Professional Courier"
-                    disabled
-                    style={{ background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' }}
-                  >
-                    <option value="Professional Courier">Professional Courier</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Select Service Option</label>
-                  <select
-                    className="form-control"
-                    value={courierService}
-                    onChange={(e) => {
-                      const selectedVal = e.target.value;
-                      setCourierService(selectedVal);
-                      const quote = availableQuotes.find(q => `Professional Courier - ${q.serviceType}` === selectedVal);
-                      if (quote) {
-                        setDeliveryCharge(quote.finalAmount);
-                      }
-                    }}
-                  >
-                    {availableQuotes.map((quote, idx) => (
-                      <option key={idx} value={`Professional Courier - ${quote.serviceType}`}>
-                        {quote.serviceType} (₹{quote.finalAmount} - Est: {quote.estDays} days)
-                      </option>
-                    ))}
-                  </select>
+            {isZipValid && !courierLoading && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                <div><strong>Shipping Method:</strong> Standard Shipping</div>
+                <div><strong>Total Weight:</strong> {totalWeight.toFixed(2)} kg</div>
+                <div><strong>Shipping Rate:</strong> {((state || '').toLowerCase().replace(/\s+/g, '').includes('tamilnadu') || (state || '').toLowerCase().replace(/\s+/g, '') === 'tn') ? '₹50/kg (Tamil Nadu)' : '₹150/kg (Other States)'}</div>
+                <div style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '0.5rem' }}>
+                  Shipping Charge: ₹{deliveryCharge}
                 </div>
               </div>
             )}
@@ -1010,7 +980,7 @@ const Checkout = () => {
             className="btn btn-primary"
             style={{ width: '100%', padding: '0.8rem', marginTop: '1.5rem' }}
           >
-            {placingOrder ? 'Processing Order...' : !courierService ? 'Select Courier Service' : 'Pay & Place Order'}
+            {placingOrder ? 'Processing Order...' : !isZipValid ? 'Enter Pincode to Calculate Shipping' : 'Pay & Place Order'}
           </button>
         </aside>
       </form>

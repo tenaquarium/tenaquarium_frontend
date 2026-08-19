@@ -405,8 +405,14 @@ const AdminDashboard = () => {
   const handleCancelOrder = async (orderId) => {
     const confirm = await showConfirm('Are you sure you want to cancel this order?');
     if (confirm) {
+      const reason = prompt('Please enter the reason for cancellation:');
+      if (reason === null) return;
+      const finalReason = reason.trim() || 'Cancelled by Admin';
       try {
-        await api.put(`/orders/${orderId}`, { orderStatus: 'Cancelled' });
+        await api.put(`/orders/${orderId}`, { 
+          orderStatus: 'Cancelled',
+          cancellationReason: finalReason
+        });
         alert('Order has been cancelled.');
         fetchAdminData();
       } catch (error) {
@@ -1072,7 +1078,11 @@ const AdminDashboard = () => {
                               <button
                                 onClick={async () => {
                                   try {
-                                    await api.put(`/orders/${ord._id}`, { paymentStatus: 'failed', orderStatus: 'Cancelled' });
+                                    await api.put(`/orders/${ord._id}`, { 
+                                      paymentStatus: 'failed', 
+                                      orderStatus: 'Cancelled',
+                                      cancellationReason: 'Payment Verification Failed'
+                                    });
                                     alert('Order payment rejected and order cancelled.');
                                     fetchAdminData();
                                   } catch (err) {

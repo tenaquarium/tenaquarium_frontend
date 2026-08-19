@@ -71,6 +71,7 @@ const CustomerDashboard = () => {
   const [cartCount, setCartCount] = useState(0);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+  const [ordersFilter, setOrdersFilter] = useState('All');
 
 
 
@@ -664,8 +665,51 @@ const CustomerDashboard = () => {
                   You haven't placed any orders yet.
                 </div>
               ) : (
-                <div className={styles['scroll-list-container']}>
-                  {orders.map((ord) => (
+                <div>
+                  {/* Order History Sub-Tabs */}
+                  <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                    {['All', 'Processing', 'Delivered', 'Failed'].map((filterOption) => (
+                      <button
+                        key={filterOption}
+                        type="button"
+                        onClick={() => setOrdersFilter(filterOption)}
+                        className={`btn ${ordersFilter === filterOption ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '0.4rem 1.2rem', fontSize: '0.85rem', borderRadius: '8px' }}
+                      >
+                        {filterOption === 'Failed' ? 'Failed & Cancelled' : filterOption}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={styles['scroll-list-container']}>
+                    {orders.filter((ord) => {
+                      if (ordersFilter === 'Processing') {
+                        return ord.orderStatus !== 'Delivered' && ord.orderStatus !== 'Cancelled' && ord.paymentStatus !== 'failed';
+                      }
+                      if (ordersFilter === 'Delivered') {
+                        return ord.orderStatus === 'Delivered';
+                      }
+                      if (ordersFilter === 'Failed') {
+                        return ord.orderStatus === 'Cancelled' || ord.paymentStatus === 'failed';
+                      }
+                      return true;
+                    }).length === 0 ? (
+                      <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No orders found in this category.
+                      </div>
+                    ) : (
+                      orders.filter((ord) => {
+                        if (ordersFilter === 'Processing') {
+                          return ord.orderStatus !== 'Delivered' && ord.orderStatus !== 'Cancelled' && ord.paymentStatus !== 'failed';
+                        }
+                        if (ordersFilter === 'Delivered') {
+                          return ord.orderStatus === 'Delivered';
+                        }
+                        if (ordersFilter === 'Failed') {
+                          return ord.orderStatus === 'Cancelled' || ord.paymentStatus === 'failed';
+                        }
+                        return true;
+                      }).map((ord) => (
                     <div key={ord._id} className="glass-panel" style={{ padding: '2rem' }}>
                       <div 
                         onClick={() => setExpandedOrders(prev => ({ ...prev, [ord._id]: !prev[ord._id] }))}
@@ -904,7 +948,8 @@ const CustomerDashboard = () => {
                         </>
                       )}
                     </div>
-                  ))}
+                  )))}
+                  </div>
                 </div>
               )}
             </div>

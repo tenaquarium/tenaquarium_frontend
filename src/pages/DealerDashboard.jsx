@@ -737,8 +737,15 @@ const DealerDashboard = () => {
   const handleCancelCustomerOrder = async (orderId) => {
     const confirm = await showConfirm('Are you sure you want to cancel this order?');
     if (confirm) {
+      const reason = prompt('Please enter the reason for cancellation (e.g. Out of Stock, Transport issues):');
+      if (reason === null) return;
+      const finalReason = reason.trim() || 'Cancelled by Dealer';
+      
       try {
-        await api.put(`/orders/${orderId}`, { orderStatus: 'Cancelled' });
+        await api.put(`/orders/${orderId}`, { 
+          orderStatus: 'Cancelled',
+          cancellationReason: finalReason
+        });
         alert('Order cancelled successfully.');
         window.dispatchEvent(new CustomEvent('sms-notification', {
           detail: { message: `TENAQUARIUM: Order #${orderId.slice(-6)} has been Cancelled successfully. Funds (if paid) will be refunded.` }
@@ -1516,7 +1523,7 @@ Aquarium Care & Environment Requirements:
                   className={`btn ${orderSubTab === 'incoming' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ padding: '0.6rem 1.5rem', margin: 0 }}
                 >
-                  Incoming Orders ({orders.filter(o => ['Processing', 'Placed', 'Pending'].includes(o.orderStatus)).length})
+                  Incoming Orders ({orders.filter(o => ['Processing', 'Placed', 'Pending'].includes(o.orderStatus) && o.paymentStatus !== 'failed').length})
                 </button>
                 <button
                   type="button"
@@ -1526,12 +1533,22 @@ Aquarium Care & Environment Requirements:
                 >
                   Shipped & Delivered ({orders.filter(o => ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus)).length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderSubTab('failed')}
+                  className={`btn ${orderSubTab === 'failed' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.6rem 1.5rem', margin: 0 }}
+                >
+                  Failed & Cancelled ({orders.filter(o => ['Cancelled', 'Returned'].includes(o.orderStatus) || o.paymentStatus === 'failed').length})
+                </button>
               </div>
 
               {(() => {
                 const filtered = orders.filter(o => {
                   if (orderSubTab === 'incoming') {
-                    return ['Processing', 'Placed', 'Pending'].includes(o.orderStatus);
+                    return ['Processing', 'Placed', 'Pending'].includes(o.orderStatus) && o.paymentStatus !== 'failed';
+                  } else if (orderSubTab === 'failed') {
+                    return ['Cancelled', 'Returned'].includes(o.orderStatus) || o.paymentStatus === 'failed';
                   } else {
                     return ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus);
                   }
