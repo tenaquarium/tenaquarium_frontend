@@ -74,6 +74,7 @@ const DealerDashboard = () => {
   const [orderBills, setOrderBills] = useState({});
   const [uploadingBillOrderId, setUploadingBillOrderId] = useState(null);
   const [orderSubTab, setOrderSubTab] = useState('incoming');
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [payoutSubTab, setPayoutSubTab] = useState('All');
   const [syncingReviews, setSyncingReviews] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
@@ -181,7 +182,7 @@ const DealerDashboard = () => {
 
   // Lock body scroll when overlay modals are open
   useEffect(() => {
-    if (showProductModal || showPasswordChangeModal || activeInvoiceOrder || showCaptcha || showShipModal) {
+    if (showProductModal || showPasswordChangeModal || activeInvoiceOrder || showCaptcha || showShipModal || selectedOrderDetails) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -189,7 +190,7 @@ const DealerDashboard = () => {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [showProductModal, showPasswordChangeModal, activeInvoiceOrder, showCaptcha, showShipModal]);
+  }, [showProductModal, showPasswordChangeModal, activeInvoiceOrder, showCaptcha, showShipModal, selectedOrderDetails]);
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -1533,22 +1534,12 @@ Aquarium Care & Environment Requirements:
                 >
                   Shipped & Delivered ({orders.filter(o => ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus)).length})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderSubTab('failed')}
-                  className={`btn ${orderSubTab === 'failed' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '0.6rem 1.5rem', margin: 0 }}
-                >
-                  Failed & Cancelled ({orders.filter(o => ['Cancelled', 'Returned'].includes(o.orderStatus) || o.paymentStatus === 'failed').length})
-                </button>
               </div>
 
               {(() => {
                 const filtered = orders.filter(o => {
                   if (orderSubTab === 'incoming') {
                     return ['Processing', 'Placed', 'Pending'].includes(o.orderStatus) && o.paymentStatus !== 'failed';
-                  } else if (orderSubTab === 'failed') {
-                    return ['Cancelled', 'Returned'].includes(o.orderStatus) || o.paymentStatus === 'failed';
                   } else {
                     return ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus);
                   }
@@ -1565,8 +1556,15 @@ Aquarium Care & Environment Requirements:
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: '0.5rem' }}>
                     {filtered.map((ord) => (
-                      <div key={ord._id} className="glass-panel" style={{ padding: '2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div 
+                        key={ord._id} 
+                        className="glass-panel" 
+                        onClick={() => setSelectedOrderDetails(ord)}
+                        style={{ padding: '1.5rem 2rem', cursor: 'pointer', transition: 'transform 0.2s', border: '1px solid var(--border-color)' }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                           <div>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ORDER ID</span>
                             <div style={{ fontWeight: '600' }}>#{ord.customOrderId || ord._id.toString().slice(-6)}</div>
@@ -1587,92 +1585,6 @@ Aquarium Care & Environment Requirements:
                               {ord.orderStatus}
                             </div>
                           </div>
-                        </div>
-
-                        {/* Customer Info */}
-                        <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                          <h5 style={{ fontWeight: '700', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <User size={16} />
-                            Customer Shipping Information
-                          </h5>
-                          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            Name: <strong>{ord.customerId?.name}</strong> | Phone: <strong>{ord.customerId?.phone}</strong> | Email: {ord.customerId?.email}
-                          </p>
-                          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            Address: {ord.shippingAddress?.address}, {ord.shippingAddress?.city}, {ord.shippingAddress?.state} - {ord.shippingAddress?.zip}
-                          </p>
-                          {ord.courierService && (
-                            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
-                              Courier Option: <strong>{ord.courierService}</strong> | Delivery Fee: <strong>₹{ord.deliveryCharge}</strong>
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Items sold by this dealer */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          {ord.products.map((item) => {
-                            const prod = item.productId;
-                            if (!prod) return null;
-                            return (
-                              <div key={item._id} style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                  <img
-                                    src={item.image ? item.image : (prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200')}
-                                    alt={prod.productName}
-                                    style={{ width: '50px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
-                                  />
-                                  <div>
-                                    <h6 style={{ fontWeight: '700', margin: 0 }}>
-                                      {prod.productName} {item.color && item.color !== 'Standard' && (
-                                        <span style={{ color: 'var(--primary)', fontSize: '0.8rem', marginLeft: '6px' }}>
-                                          ({item.color})
-                                        </span>
-                                      )}
-                                    </h6>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                      Qty: {item.quantity} | Unit Price: ₹{item.price.toLocaleString()}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Actions */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                          {ord.orderStatus === 'Processing' && (
-                            <button
-                              onClick={() => {
-                                setShipOrder(ord);
-                                setLabelValidationError('');
-                                const savedBox = localStorage.getItem('ship_box_photo_' + ord._id);
-                                if (savedBox) {
-                                  setFinalBoxPhoto(savedBox);
-                                  setLabelVerified(true);
-                                  setManualLabelOverride(true);
-                                  setShipStep(2);
-                                } else {
-                                  setFinalBoxPhoto('');
-                                  setLabelVerified(false);
-                                  setManualLabelOverride(false);
-                                  setShipStep(1);
-                                }
-                                 setCourierBillPhoto('');
-                                 setScannedAWB('');
-                                 setScannedCourier('');
-                                 setExtractedBillDetails({ courier: '', consignmentNo: '', bookingDate: '', from: '', to: '' });
-                                 setBillValidationError('');
-                                 setVerifyingBill(false);
-                                 setShowShipModal(true);
-                              }}
-                              className="btn btn-primary"
-                              style={{ padding: '0.5rem 1.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                            >
-                              <Truck size={16} />
-                              Proceed to Ship
-                            </button>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -3570,6 +3482,137 @@ Aquarium Care & Environment Requirements:
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {selectedOrderDetails && (
+        <div className={styles['modal-overlay']} onClick={() => setSelectedOrderDetails(null)} style={{ zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
+          <div className={`glass-panel`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '650px', width: '95%', padding: '2rem', maxHeight: '90vh', overflowY: 'auto', position: 'relative', borderRadius: '16px' }}>
+            <button 
+              onClick={() => setSelectedOrderDetails(null)} 
+              className={styles['modal-close']}
+              style={{ position: 'absolute', top: '1.2rem', right: '1.2rem', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+            
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '1.5rem', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+              Order Details
+            </h3>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ORDER ID</span>
+                <div style={{ fontWeight: '600' }}>#{selectedOrderDetails.customOrderId || selectedOrderDetails._id.toString().slice(-6)}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>PAYMENT STATUS</span>
+                <div style={{ fontWeight: '600', color: selectedOrderDetails.paymentStatus === 'paid' ? 'var(--success)' : 'var(--warning)' }}>
+                  {selectedOrderDetails.paymentStatus.toUpperCase()} ({selectedOrderDetails.paymentMethod})
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>YOUR SHARE TOTAL</span>
+                <div style={{ fontWeight: '700', color: 'var(--secondary)' }}>₹{selectedOrderDetails.dealerSubtotal.toLocaleString()}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>SHIPMENT STATE</span>
+                <div style={{ fontWeight: '600', color: selectedOrderDetails.orderStatus === 'Delivered' ? 'var(--success)' : 'var(--primary)' }}>
+                  {selectedOrderDetails.orderStatus}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Info */}
+            <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <h5 style={{ fontWeight: '700', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <User size={16} />
+                Customer Shipping Information
+              </h5>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Name: <strong>{selectedOrderDetails.customerId?.name}</strong> | Phone: <strong>{selectedOrderDetails.customerId?.phone}</strong> | Email: {selectedOrderDetails.customerId?.email}
+              </p>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Address: {selectedOrderDetails.shippingAddress?.address}, {selectedOrderDetails.shippingAddress?.city}, {selectedOrderDetails.shippingAddress?.state} - {selectedOrderDetails.shippingAddress?.zip}
+              </p>
+              {selectedOrderDetails.courierService && (
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
+                  Courier Option: <strong>{selectedOrderDetails.courierService}</strong> | Delivery Fee: <strong>₹{selectedOrderDetails.deliveryCharge}</strong>
+                </p>
+              )}
+            </div>
+
+            {/* Items sold by this dealer */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              <h5 style={{ fontWeight: '700', margin: 0 }}>Items Ordered</h5>
+              {selectedOrderDetails.products.map((item) => {
+                const prod = item.productId;
+                if (!prod) return null;
+                return (
+                  <div key={item._id} style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <img
+                        src={item.image ? item.image : (prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200')}
+                        alt={prod.productName}
+                        style={{ width: '50px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                      />
+                      <div>
+                        <h6 style={{ fontWeight: '700', margin: 0 }}>
+                          {prod.productName} {item.color && item.color !== 'Standard' && (
+                            <span style={{ color: 'var(--primary)', fontSize: '0.8rem', marginLeft: '6px' }}>
+                              ({item.color})
+                            </span>
+                          )}
+                        </h6>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          Qty: {item.quantity} | Unit Price: ₹{item.price.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem', marginTop: '1.2rem' }}>
+              {selectedOrderDetails.orderStatus === 'Processing' && (
+                <button
+                  onClick={() => {
+                    const ord = selectedOrderDetails;
+                    setSelectedOrderDetails(null); // Close order details modal
+                    setShipOrder(ord);
+                    setLabelValidationError('');
+                    const savedBox = localStorage.getItem('ship_box_photo_' + ord._id);
+                    if (savedBox) {
+                      setFinalBoxPhoto(savedBox);
+                      setLabelVerified(true);
+                      setManualLabelOverride(true);
+                      setShipStep(2);
+                    } else {
+                      setFinalBoxPhoto('');
+                      setLabelVerified(false);
+                      setManualLabelOverride(false);
+                      setShipStep(1);
+                    }
+                    setCourierBillPhoto('');
+                    setScannedAWB('');
+                    setScannedCourier('');
+                    setExtractedBillDetails({ courier: '', consignmentNo: '', bookingDate: '', from: '', to: '' });
+                    setBillValidationError('');
+                    setVerifyingBill(false);
+                    setShowShipModal(true);
+                  }}
+                  className="btn btn-primary"
+                  style={{ padding: '0.5rem 1.2rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                >
+                  <Truck size={16} />
+                  Proceed to Ship
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

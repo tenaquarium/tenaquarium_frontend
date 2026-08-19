@@ -30,7 +30,8 @@ const Checkout = () => {
   const [area, setArea] = useState('');
   const [hasAltPhone, setHasAltPhone] = useState(false);
   const [altPhone, setAltPhone] = useState('');
-  const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [showLiveRestrictionModal, setShowLiveRestrictionModal] = useState(false);
+  const [showAddressConfirmationModal, setShowAddressConfirmationModal] = useState(false);
 
   // Autofill phone when user profile loads
   useEffect(() => {
@@ -371,8 +372,43 @@ const Checkout = () => {
     }
   }, [zip, dealerInfo, totalWeight]);
 
+  const handleRemoveLiveItems = async () => {
+    setShowAddressConfirmationModal(false);
+    if (!cart || !cart.products) return;
+
+    const liveItems = cart.products.filter(item => 
+      item.productId && (item.productId.category === 'Aquarium Fish' || item.productId.category === 'Aquarium Plants')
+    );
+
+    try {
+      setPlacingOrder(true);
+      for (const item of liveItems) {
+        const prodId = item.productId._id || item.productId;
+        const colorVal = item.color || '';
+        await api.delete(`/cart/${prodId}?color=${colorVal}`);
+      }
+
+      // Update local cart state
+      const updatedProducts = cart.products.filter(item => 
+        !(item.productId && (item.productId.category === 'Aquarium Fish' || item.productId.category === 'Aquarium Plants'))
+      );
+
+      setCart(prev => ({ ...prev, products: updatedProducts }));
+      
+      // Dispatch global cart-updated event for header count update
+      window.dispatchEvent(new Event('cart-updated'));
+
+      alert("Ineligible live items (fish and plants) have been successfully removed from your cart. Please review your updated order summary and proceed.");
+    } catch (err) {
+      console.error("Error removing live items from cart:", err);
+      alert("Failed to remove live items from cart automatically. Please remove them manually.");
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   const handleCheckoutSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     
     // Indian PIN code validation check
     if (!isZipValid) {
@@ -406,7 +442,7 @@ const Checkout = () => {
         item.productId && (item.productId.category === 'Aquarium Fish' || item.productId.category === 'Aquarium Plants')
       );
       if (hasLiveShipment) {
-        alert('Transport not available for fish/plant shipment to North India. We can ship all other products. Please remove fish or plants from your cart to proceed.');
+        setShowLiveRestrictionModal(true);
         return;
       }
     }
@@ -491,7 +527,7 @@ const Checkout = () => {
 
   // Lock body scroll when payment modal, cancel confirm, or policy modal is active
   useEffect(() => {
-    if (showUpiModal || showCancelConfirmModal || showPolicyModal) {
+    if (showUpiModal || showCancelConfirmModal || showPolicyModal || showLiveRestrictionModal || showAddressConfirmationModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -499,7 +535,7 @@ const Checkout = () => {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [showUpiModal, showCancelConfirmModal, showPolicyModal]);
+  }, [showUpiModal, showCancelConfirmModal, showPolicyModal, showLiveRestrictionModal, showAddressConfirmationModal]);
 
   // Cancel order when payment expires
   const handlePaymentExpired = async () => {
@@ -846,13 +882,36 @@ const Checkout = () => {
             )}
 
             {isZipValid && !courierLoading && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                <div><strong>Shipping Method:</strong> Standard Shipping</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
                 <div><strong>Total Weight:</strong> {totalWeight.toFixed(2)} kg</div>
-                <div><strong>Shipping Rate:</strong> {((state || '').toLowerCase().replace(/\s+/g, '').includes('tamilnadu') || (state || '').toLowerCase().replace(/\s+/g, '') === 'tn') ? '₹50/kg (Tamil Nadu)' : '₹150/kg (Other States)'}</div>
-                <div style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '0.5rem' }}>
-                  Shipping Charge: ₹{deliveryCharge}
-                </div>
+                <div><strong>Shipping Rate:</strong> {((state || '').toLowerCase().replace(/\s+/g, '').includes('tamilnadu') || (state || '').toLowerCase().replace(/\s+/g, '') === 'tn') ? '₹50/kg (Tamil Nadu base)' : '₹150/kg (Other States base)'}</div>
+                {availableQuotes && availableQuotes.length > 0 ? (
+                  <div className="form-group" style={{ margin: '0.4rem 0 0 0' }}>
+                    <label className="form-label" style={{ marginBottom: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Select Delivery Courier:</label>
+                    <select
+                      value={courierService}
+                      onChange={(e) => {
+                        const selected = availableQuotes.find(q => q.courierName === e.target.value);
+                        if (selected) {
+                          setCourierService(selected.courierName);
+                          setDeliveryCharge(selected.finalAmount);
+                        }
+                      }}
+                      className="form-control"
+                      style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                    >
+                      {availableQuotes.map((q, idx) => (
+                        <option key={idx} value={q.courierName} style={{ background: '#1e293b' }}>
+                          {q.courierName} - ₹{q.finalAmount} [Est: {q.estDays} days]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '0.5rem' }}>
+                    Shipping Charge: ₹{deliveryCharge}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1395,6 +1454,70 @@ const Checkout = () => {
                 style={{ padding: '0.5rem 1.5rem', fontSize: '0.88rem' }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Restriction Modal */}
+      {showLiveRestrictionModal && (
+        <div className={styles['modal-overlay']} style={{ zIndex: 100001 }}>
+          <div className={`glass-panel ${styles['modal-content']}`} style={{ maxWidth: '400px', padding: '2rem', textAlign: 'center', borderColor: 'var(--accent)', position: 'relative' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.2rem' }}>
+              <AlertCircle size={28} style={{ color: 'var(--accent)' }} />
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.8rem', color: 'var(--text-primary)' }}>
+              Live Shipment Restriction
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.8rem', lineHeight: '1.5' }}>
+              Live fish and plants cannot be shipped to North India or other countries due to transport limits and extended transit times.
+            </p>
+            <button
+              onClick={() => {
+                setShowLiveRestrictionModal(false);
+                setShowAddressConfirmationModal(true);
+              }}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.6rem', fontWeight: 'bold' }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Address Confirmation Modal */}
+      {showAddressConfirmationModal && (
+        <div className={styles['modal-overlay']} style={{ zIndex: 100002 }}>
+          <div className={`glass-panel ${styles['modal-content']}`} style={{ maxWidth: '400px', padding: '2rem', textAlign: 'center', borderColor: 'var(--primary)', position: 'relative' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(2, 132, 199, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.2rem' }}>
+              <MapPin size={28} style={{ color: 'var(--primary)' }} />
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.8rem', color: 'var(--text-primary)' }}>
+              Are you sure about your address?
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.8rem', lineHeight: '1.5' }}>
+              Click <strong>"Yes"</strong> to change/edit your address to a South India destination, or click <strong>"No"</strong> to automatically remove all live fish and plants and continue.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => {
+                  setShowAddressConfirmationModal(false);
+                  const zipInput = document.querySelector('input[placeholder="e.g. 641001"]');
+                  if (zipInput) zipInput.focus();
+                }}
+                className="btn"
+                style={{ flex: 1, padding: '0.6rem', fontWeight: 'bold', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Yes (Edit)
+              </button>
+              <button
+                onClick={handleRemoveLiveItems}
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '0.6rem', fontWeight: 'bold' }}
+              >
+                No (Remove)
               </button>
             </div>
           </div>
