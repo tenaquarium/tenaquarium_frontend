@@ -28,6 +28,7 @@ const Checkout = () => {
   const directBuyItem = location.state?.directBuyItem || null;
   const [areasList, setAreasList] = useState([]);
   const [area, setArea] = useState('');
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [hasAltPhone, setHasAltPhone] = useState(false);
   const [altPhone, setAltPhone] = useState('');
   const [showLiveRestrictionModal, setShowLiveRestrictionModal] = useState(false);
@@ -272,10 +273,12 @@ const Checkout = () => {
 
           // Fetch dealer details
           if (res.data.products.length > 0) {
-            const firstProdId = res.data.products[0].productId._id;
-            const prodRes = await api.get(`/products/${firstProdId}`);
-            if (prodRes.data && prodRes.data.dealerInfo) {
-              setDealerInfo(prodRes.data.dealerInfo);
+            const firstProd = res.data.products[0].productId;
+            if (firstProd && firstProd._id) {
+              const prodRes = await api.get(`/products/${firstProd._id}`);
+              if (prodRes.data && prodRes.data.dealerInfo) {
+                setDealerInfo(prodRes.data.dealerInfo);
+              }
             }
           }
         }
