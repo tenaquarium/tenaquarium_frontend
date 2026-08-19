@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import Loader from '../components/Loader';
 import api from '../utils/api';
 import { Search, Star, SlidersHorizontal, RefreshCw } from 'lucide-react';
+import { useProductsQuery } from '../hooks/useProducts';
 
 const shuffleArray = (array) => {
   const arr = [...array];
@@ -17,8 +18,6 @@ const shuffleArray = (array) => {
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   // States for filters
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
@@ -58,46 +57,31 @@ const Products = () => {
     fetchCategories();
   }, []);
 
-  // Fetch products when filters/params change
+  // Construct filters object from SearchParams (source of truth)
+  const filters = {
+    keyword: searchParams.get('keyword') || '',
+    category: searchParams.get('category') || 'All',
+    priceMin: searchParams.get('priceMin') || '',
+    priceMax: searchParams.get('priceMax') || '',
+    rating: searchParams.get('rating') || '',
+    sort: searchParams.get('sort') || 'newest',
+  };
+
+  const { data: queryProducts, isLoading } = useProductsQuery(filters);
+  const products = queryProducts || [];
+  const loading = isLoading;
+
+  // Sync state changes with SearchParams
   useEffect(() => {
-    const fetchFilteredProducts = async () => {
-      setLoading(true);
-      try {
-        const queryParams = new URLSearchParams();
-        if (keyword) queryParams.append('keyword', keyword);
-        if (category && category !== 'All') queryParams.append('category', category);
-        if (priceMin) queryParams.append('priceMin', priceMin);
-        if (priceMax) queryParams.append('priceMax', priceMax);
-        if (rating) queryParams.append('rating', rating);
-        if (sort) queryParams.append('sort', sort);
-
-        const res = await api.get(`/products?${queryParams.toString()}`);
-        
-        const hasFilters = 
-          (keyword && keyword.trim() !== '') || 
-          (category && category !== 'All') || 
-          priceMin || 
-          priceMax || 
-          rating || 
-          (sort && sort !== 'newest') ||
-          (selectedVendor && selectedVendor !== 'All');
-
-        if (!hasFilters) {
-          setProducts(shuffleArray(res.data));
-        } else {
-          setProducts(res.data);
-        }
-      } catch (error) {
-        console.error('Error fetching filtered products', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFilteredProducts();
+    setKeyword(searchParams.get('keyword') || '');
+    setCategory(searchParams.get('category') || 'All');
+    setPriceMin(searchParams.get('priceMin') || '');
+    setPriceMax(searchParams.get('priceMax') || '');
+    setRating(searchParams.get('rating') || '');
+    setSort(searchParams.get('sort') || 'newest');
   }, [searchParams]);
 
-  // Sync state changes with SearchParams (effectively triggering useEffect)
+  // Sync state changes with SearchParams (effectively triggering React Query query key change)
   const applyFilters = () => {
     const params = {};
     if (keyword) params.keyword = keyword;

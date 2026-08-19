@@ -78,6 +78,37 @@ const ProductCard = ({ product }) => {
     }
   };
 
+  const handleBuyNow = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (user.role !== 'customer' && user.role !== 'dealer') {
+      alert('Only customers and dealers can purchase products.');
+      return;
+    }
+
+    const sellerId = product.dealerId?._id || product.dealerId;
+    if (user.role === 'dealer' && sellerId && sellerId.toString() === user._id.toString()) {
+      alert('You cannot buy your own products.');
+      return;
+    }
+
+    // Direct checkout with minQuantity
+    navigate('/payment', {
+      state: {
+        directBuyItem: {
+          productId: product,
+          quantity: product.minQuantity || 2
+        }
+      }
+    });
+  };
+
   const offer = product.dealerOffer;
   const discount = offer ? offer.discountPercentage : 0;
   const finalPrice = discount > 0 ? product.price * (1 - discount / 100) : product.price;
@@ -90,6 +121,8 @@ const ProductCard = ({ product }) => {
             src={product.images && product.images[0] ? product.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500'}
             alt={product.productName}
             className={styles['product-img']}
+            loading="lazy"
+            decoding="async"
           />
         </Link>
         <button
@@ -141,6 +174,10 @@ const ProductCard = ({ product }) => {
           )}
         </div>
 
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '700', marginTop: '2px' }}>
+          <span>Min. Order: {product.minQuantity || 2} pcs</span>
+        </div>
+
         {offer?.customOfferText && (
           <div style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--primary)', marginTop: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={offer.customOfferText}>
             🏷️ {offer.customOfferText}
@@ -148,15 +185,24 @@ const ProductCard = ({ product }) => {
         )}
 
         {product.stock > 0 && (!user || user.role === 'customer' || (user.role === 'dealer' && (product.dealerId?._id || product.dealerId)?.toString() !== user._id.toString())) && (
-          <button
-            onClick={handleAddToCart}
-            disabled={loadingCart}
-            className="btn btn-primary"
-            style={{ marginTop: '0.2rem', width: '100%', padding: '0.4rem', fontSize: '0.8rem', gap: '0.3rem' }}
-          >
-            <ShoppingCart size={14} />
-            {loadingCart ? 'Adding...' : 'Add to Cart'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%', marginTop: '0.4rem' }}>
+            <button
+              onClick={handleAddToCart}
+              disabled={loadingCart}
+              className="btn btn-secondary"
+              style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', gap: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <ShoppingCart size={12} />
+              {loadingCart ? 'Adding...' : 'Add to Cart'}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              Buy
+            </button>
+          </div>
         )}
       </div>
     </div>

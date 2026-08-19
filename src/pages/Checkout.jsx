@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './Checkout.module.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Loader from '../components/Loader';
 import api from '../utils/api';
 import { CreditCard, CheckCircle, MapPin, AlertCircle, Sparkles, Truck, QrCode, Smartphone, Send } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [cart, setCart] = useState(null);
   const [dealers, setDealers] = useState([]);
@@ -22,6 +23,14 @@ const Checkout = () => {
   const [phone, setPhone] = useState(user?.phone || '');
   const [paymentMethod, setPaymentMethod] = useState('UPI-QR');
   const [paymentSubMethod, setPaymentSubMethod] = useState('online');
+
+  // Direct checkout & courier selection states
+  const directBuyItem = location.state?.directBuyItem || null;
+  const [areasList, setAreasList] = useState([]);
+  const [area, setArea] = useState('');
+  const [hasAltPhone, setHasAltPhone] = useState(false);
+  const [altPhone, setAltPhone] = useState('');
+  const [policyAccepted, setPolicyAccepted] = useState(false);
 
   // Autofill phone when user profile loads
   useEffect(() => {
@@ -41,9 +50,6 @@ const Checkout = () => {
   const [paymentRejectReason, setPaymentRejectReason] = useState('timeout'); // 'timeout' | 'admin'
   const [timerSeconds, setTimerSeconds] = useState(300);
   const [paymentStep, setPaymentStep] = useState('pay'); // 'pay' | 'submitting' | 'waiting' | 'success' | 'expired'
-  const [agreeTC, setAgreeTC] = useState(false);
-  const [agreeRefund, setAgreeRefund] = useState(false);
-  const [agreeFishCare, setAgreeFishCare] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyActiveTab, setPolicyActiveTab] = useState('fishcare');
   
@@ -51,11 +57,9 @@ const Checkout = () => {
   const [dealerInfo, setDealerInfo] = useState(null);
   const [courierService, setCourierService] = useState('');
   const [totalWeight, setTotalWeight] = useState(0);
-  const [distance, setDistance] = useState(0);
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   
   // Dynamic API rates states
-  const [serviceType, setServiceType] = useState('Surface');
   const [availableQuotes, setAvailableQuotes] = useState([]);
   const [courierLoading, setCourierLoading] = useState(false);
   const [courierError, setCourierError] = useState('');
@@ -224,41 +228,69 @@ const Checkout = () => {
   };
 
   useEffect(() => {
-    const fetchCart = async () => {
+    const fetchCartOrDirectItem = async () => {
       try {
-        const res = await api.get('/cart');
-        if (res.data.products.length === 0) {
-          navigate('/cart');
-          return;
-        }
-        setCart(res.data);
-        
         // Fetch public dealers to check discounts
         const dealersRes = await api.get('/dealers/approved/public');
         setDealers(dealersRes.data);
-        
-        // Calculate box weight
-        const weight = calculateCartWeight(res.data.products);
-        setTotalWeight(weight);
 
-        // Fetch dealer details
-        if (res.data.products.length > 0) {
-          const firstProdId = res.data.products[0].productId._id;
-          const prodRes = await api.get(`/products/${firstProdId}`);
+        if (directBuyItem) {
+          // Wrap in cart-like structure
+          const mockCart = {
+            products: [
+              {
+                productId: directBuyItem.productId,
+                quantity: directBuyItem.quantity
+              }
+            ]
+          };
+          setCart(mockCart);
+
+          // Calculate weight
+          const weight = calculateCartWeight(mockCart.products);
+          setTotalWeight(weight);
+
+          // Fetch dealer details for this direct-buy product
+          const dealerId = directBuyItem.productId.dealerId?._id || directBuyItem.productId.dealerId;
+          const prodRes = await api.get(`/products/${directBuyItem.productId._id}`);
           if (prodRes.data && prodRes.data.dealerInfo) {
             setDealerInfo(prodRes.data.dealerInfo);
+          } else if (dealerId) {
+            // fallback
+            setDealerInfo({ userId: dealerId, address: 'Salem, Tamil Nadu' });
+          }
+        } else {
+          // Standard cart checkout flow
+          const res = await api.get('/cart');
+          if (res.data.products.length === 0) {
+            navigate('/cart');
+            return;
+          }
+          setCart(res.data);
+          
+          // Calculate box weight
+          const weight = calculateCartWeight(res.data.products);
+          setTotalWeight(weight);
+
+          // Fetch dealer details
+          if (res.data.products.length > 0) {
+            const firstProdId = res.data.products[0].productId._id;
+            const prodRes = await api.get(`/products/${firstProdId}`);
+            if (prodRes.data && prodRes.data.dealerInfo) {
+              setDealerInfo(prodRes.data.dealerInfo);
+            }
           }
         }
       } catch (error) {
-        console.error('Error fetching cart for checkout', error);
+        console.error('Error fetching cart or direct buy item', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchCart();
-  }, [navigate]);
+    fetchCartOrDirectItem();
+  }, [navigate, directBuyItem]);
 
-  // 1. Validate Indian PIN code against official postal registry
+  // Consolidated Pincode and Professional Courier Checker
   useEffect(() => {
     const pinRegex = /^[1-9][0-9]{5}$/;
     if (!zip) {
@@ -266,7 +298,12 @@ const Checkout = () => {
       setZipError('');
       setCity('');
       setState('');
-      setApiFailed(false);
+      setAreasList([]);
+      setArea('');
+      setAvailableQuotes([]);
+      setCourierService('');
+      setDeliveryCharge(0);
+      setCourierError('');
       return;
     }
 
@@ -275,80 +312,67 @@ const Checkout = () => {
       setZipError('Format must be 6 digits (cannot start with 0).');
       setCity('');
       setState('');
-      setApiFailed(false);
-      return;
-    }
-
-    const verifyPinCode = async () => {
-      setZipLoading(true);
-      setZipError('');
-      setApiFailed(false);
-      try {
-        const response = await fetch(`https://api.postalpincode.in/pincode/${zip}`);
-        const data = await response.json();
-        
-        if (data && data[0] && data[0].Status === 'Success') {
-          setIsZipValid(true);
-          setZipError('');
-          
-          const postOffices = data[0].PostOffice;
-          if (postOffices && postOffices.length > 0) {
-            const firstPO = postOffices[0];
-            // Auto-fill city and state directly
-            setCity(firstPO.District || firstPO.Block || '');
-            setState(firstPO.State || '');
-          }
-        } else {
-          setIsZipValid(false);
-          setZipError('PIN code not found in Indian Postal registry.');
-          setCity('');
-          setState('');
-        }
-      } catch (err) {
-        console.error('Postal API error, falling back to local verification', err);
-        setIsZipValid(true);
-        setZipError('');
-        setApiFailed(true); // Fallback to manual entry if API is offline
-      } finally {
-        setZipLoading(false);
-      }
-    };
-
-    verifyPinCode();
-  }, [zip]);
-
-  // 2. Recalculate distance when zip validity changes and reset speed if short distance
-  useEffect(() => {
-    if (dealerInfo && isZipValid && zip) {
-      const dist = calculateDistanceVal(dealerInfo.address, city, state, zip);
-      setDistance(dist);
-    } else {
-      setDistance(0);
-    }
-  }, [dealerInfo, city, state, zip, isZipValid, serviceType]);
-
-  // 3. Set free shipping directly when ZIP code is valid
-  useEffect(() => {
-    if (!dealerInfo || !isZipValid || !zip) {
+      setAreasList([]);
+      setArea('');
       setAvailableQuotes([]);
       setCourierService('');
       setDeliveryCharge(0);
       setCourierError('');
       return;
     }
-    
-    // Hardcode to Free Shipping
-    setAvailableQuotes([
-      {
-        courierName: 'Free Shipping',
-        estDays: 3,
-        finalAmount: 0
+
+    const checkPincodeAndCourier = async () => {
+      setZipLoading(true);
+      setZipError('');
+      setCourierError('');
+      try {
+        const res = await api.post('/courier/check-availability', {
+          deliveryPincode: zip,
+          dealerId: dealerInfo?._id || dealerInfo?.userId?._id || dealerInfo?.userId,
+          weight: totalWeight
+        });
+
+        if (res.data.success && res.data.available) {
+          setIsZipValid(true);
+          setZipError('');
+          setCity(res.data.district || '');
+          setState(res.data.state || '');
+          setAreasList(res.data.areas || []);
+          // Prefill first area
+          setArea(res.data.areas && res.data.areas[0] ? res.data.areas[0] : '');
+          
+          setAvailableQuotes(res.data.quotes || []);
+          if (res.data.quotes && res.data.quotes.length > 0) {
+            setCourierService(`Professional Courier - ${res.data.quotes[0].serviceType}`);
+            setDeliveryCharge(res.data.quotes[0].finalAmount);
+          } else {
+            setCourierService('');
+            setDeliveryCharge(0);
+          }
+        } else {
+          setIsZipValid(false);
+          setZipError(res.data.message || 'Professional Courier is not available for this pincode.');
+          setCity('');
+          setState('');
+          setAreasList([]);
+          setArea('');
+          setAvailableQuotes([]);
+          setCourierService('');
+          setDeliveryCharge(0);
+        }
+      } catch (err) {
+        console.error('Error verifying pincode/courier', err);
+        setZipError('Verification failed. Please try again.');
+        setIsZipValid(false);
+      } finally {
+        setZipLoading(false);
       }
-    ]);
-    setCourierService('Free Shipping');
-    setDeliveryCharge(0);
-    setCourierError('');
-  }, [dealerInfo, zip, isZipValid]);
+    };
+
+    if (dealerInfo && totalWeight >= 0) {
+      checkPincodeAndCourier();
+    }
+  }, [zip, dealerInfo, totalWeight]);
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
@@ -363,9 +387,48 @@ const Checkout = () => {
       alert('Please select a courier service to calculate shipping.');
       return;
     }
+
+    // Minimum quantity validation check
+    if (cart && cart.products) {
+      for (const item of cart.products) {
+        const minQty = item.productId?.minQuantity || 2;
+        if (item.quantity < minQty) {
+          alert(`Minimum order quantity for ${item.productId?.productName || 'product'} is ${minQty}. Please purchase at least ${minQty} items.`);
+          return;
+        }
+      }
+    }
+
+    // North states live shipment validation
+    const southStates = ['tamil nadu', 'tamilnadu', 'kerala', 'karnataka', 'andhra pradesh', 'telangana', 'puducherry', 'pondicherry', 'goa'];
+    const shippingStateClean = (state || '').toLowerCase().replace(/\s+/g, '');
+    const isSouthState = southStates.some(s => shippingStateClean.includes(s.replace(/\s+/g, '')));
+
+    if (!isSouthState && cart && cart.products) {
+      const hasLiveShipment = cart.products.some(item => 
+        item.productId && (item.productId.category === 'Aquarium Fish' || item.productId.category === 'Aquarium Plants')
+      );
+      if (hasLiveShipment) {
+        alert('Transport not available for fish/plant shipment to North India. We can ship all other products. Please remove fish or plants from your cart to proceed.');
+        return;
+      }
+    }
+
+    // Policy Checkbox validation
+    if (!policyAccepted) {
+      alert('You must read and agree to the Cancellation & Refund Policy and Live Fish Care Guide to place an order.');
+      return;
+    }
+
     setPlacingOrder(true);
 
-    const shippingAddress = { address, city, state, zip, phone };
+    const shippingAddress = { 
+      address: `${address}, Area: ${area}`, 
+      city, 
+      state, 
+      zip, 
+      phone: hasAltPhone && altPhone ? `${phone} / ${altPhone}` : phone 
+    };
 
     try {
       const res = await api.post('/orders', {
@@ -374,6 +437,8 @@ const Checkout = () => {
         paymentMethod,
         courierService,
         deliveryCharge,
+        policyAccepted: true,
+        isDirectBuy: !!directBuyItem
       });
 
       const { success, order } = res.data;
@@ -596,8 +661,8 @@ const Checkout = () => {
   };
 
   const subtotal = getSubtotalWithOffers();
-  const packingCharge = 40;
-  const totalPayable = subtotal + packingCharge;
+  const packingCharge = 59;
+  const totalPayable = subtotal + packingCharge + (deliveryCharge || 0);
 
   return (
     <div className="main-content" style={{ padding: '2vh 5% 4rem' }}>
@@ -627,11 +692,10 @@ const Checkout = () => {
               <input
                 type="text"
                 required
-                readOnly={!apiFailed}
+                readOnly
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
                 className="form-control"
-                style={!apiFailed ? { background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' } : {}}
+                style={{ background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' }}
                 placeholder="District (auto-filled)"
               />
             </div>
@@ -641,11 +705,10 @@ const Checkout = () => {
               <input
                 type="text"
                 required
-                readOnly={!apiFailed}
+                readOnly
                 value={state}
-                onChange={(e) => setState(e.target.value)}
                 className="form-control"
-                style={!apiFailed ? { background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' } : {}}
+                style={{ background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' }}
                 placeholder="State (auto-filled)"
               />
             </div>
@@ -672,7 +735,7 @@ const Checkout = () => {
               />
               {zipLoading && (
                 <span style={{ color: 'var(--primary)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
-                  Verifying PIN code...
+                  Verifying PIN code & checking courier...
                 </span>
               )}
               {zipError && (
@@ -688,27 +751,140 @@ const Checkout = () => {
             </div>
 
             <div className="form-group">
+              <label className="form-label">Area / Location</label>
+              <select
+                required
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                disabled={!isZipValid || areasList.length === 0}
+                className="form-control"
+                style={(!isZipValid || areasList.length === 0) ? { background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' } : {}}
+              >
+                <option value="">{(!isZipValid || areasList.length === 0) ? 'Enter Pincode first' : '-- Select Area --'}</option>
+                {areasList.map((a, idx) => (
+                  <option key={idx} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="form-group">
               <label className="form-label">Contact Phone</label>
               <input
                 type="tel"
                 required
+                pattern="[0-9]{10}"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 className="form-control"
                 placeholder="10-digit number"
               />
             </div>
+
+            <div className="form-group">
+              <label className="form-label">Add Alternative Phone?</label>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.4rem', height: '38px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input
+                    type="radio"
+                    name="hasAltPhone"
+                    checked={hasAltPhone}
+                    onChange={() => setHasAltPhone(true)}
+                  />
+                  Yes
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input
+                    type="radio"
+                    name="hasAltPhone"
+                    checked={!hasAltPhone}
+                    onChange={() => {
+                      setHasAltPhone(false);
+                      setAltPhone('');
+                    }}
+                  />
+                  No
+                </label>
+              </div>
+            </div>
           </div>
 
-          {/* Shipping & Delivery Information */}
-          <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.2)', background: 'rgba(16, 185, 129, 0.03)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ color: 'var(--success)' }}>
-              <Truck size={24} />
+          {hasAltPhone && (
+            <div className="form-group" style={{ marginTop: '0.5rem' }}>
+              <label className="form-label">Alternative Phone Number</label>
+              <input
+                type="tel"
+                required
+                pattern="[0-9]{10}"
+                value={altPhone}
+                onChange={(e) => setAltPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="form-control"
+                placeholder="10-digit alternative number"
+              />
             </div>
-            <div>
-              <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--success)' }}>Free Shipping Applied</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>All live fish and aquarium supplies ship for free across India! Flat ₹40 packing fee applies per order.</div>
-            </div>
+          )}
+
+          {/* Courier Service Section */}
+          <div className="glass-panel" style={{ padding: '1.5rem', marginTop: '1.5rem', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>
+              <Truck size={18} />
+              COURIER SERVICE
+            </h4>
+
+            {courierLoading && (
+              <span style={{ color: 'var(--primary)', fontSize: '0.88rem' }}>Checking courier availability...</span>
+            )}
+
+            {courierError && (
+              <div style={{ color: 'var(--accent)', fontSize: '0.88rem', fontWeight: 'bold' }}>
+                ⚠️ {courierError}
+              </div>
+            )}
+
+            {!zip && !courierLoading && !courierError && (
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                Please enter your Pincode above to check available courier services.
+              </div>
+            )}
+
+            {isZipValid && !courierLoading && availableQuotes.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Select Courier Service</label>
+                  <select
+                    className="form-control"
+                    value="Professional Courier"
+                    disabled
+                    style={{ background: 'rgba(255, 255, 255, 0.05)', cursor: 'not-allowed' }}
+                  >
+                    <option value="Professional Courier">Professional Courier</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Select Service Option</label>
+                  <select
+                    className="form-control"
+                    value={courierService}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      setCourierService(selectedVal);
+                      const quote = availableQuotes.find(q => `Professional Courier - ${q.serviceType}` === selectedVal);
+                      if (quote) {
+                        setDeliveryCharge(quote.finalAmount);
+                      }
+                    }}
+                  >
+                    {availableQuotes.map((quote, idx) => (
+                      <option key={idx} value={`Professional Courier - ${quote.serviceType}`}>
+                        {quote.serviceType} (₹{quote.finalAmount} - Est: {quote.estDays} days)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
@@ -770,12 +946,14 @@ const Checkout = () => {
 
           <div className={styles['summary-row']}>
             <span style={{ color: 'var(--text-secondary)' }}>Packing Charge</span>
-            <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>₹40</span>
+            <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>₹59</span>
           </div>
 
           <div className={styles['summary-row']}>
             <span style={{ color: 'var(--text-secondary)' }}>Shipping / Delivery</span>
-            <span style={{ fontWeight: '700', color: 'var(--success)' }}>Free</span>
+            <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+              {deliveryCharge > 0 ? `₹${deliveryCharge.toLocaleString()}` : 'Free'}
+            </span>
           </div>
 
           <div className={`${styles['summary-row']} ${styles['summary-total']}`}>
@@ -796,58 +974,31 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Terms Agreement Checkboxes */}
+          {/* Terms Agreement Checkbox */}
           <div style={{ marginTop: '1.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '1.2rem', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
             <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
               <input
                 type="checkbox"
-                checked={agreeTC}
-                onChange={(e) => setAgreeTC(e.target.checked)}
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
                 style={{ marginTop: '2px', cursor: 'pointer' }}
               />
               <span>
-                I agree to the{' '}
-                <span
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPolicyActiveTab('fishcare'); setShowPolicyModal(true); }}
-                  style={{ color: 'var(--primary)', textDecoration: 'underline', fontWeight: 'bold' }}
-                >
-                  Terms & Conditions
-                </span>.
-              </span>
-            </label>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={agreeRefund}
-                onChange={(e) => setAgreeRefund(e.target.checked)}
-                style={{ marginTop: '2px', cursor: 'pointer' }}
-              />
-              <span>
-                I understand the{' '}
+                I have read and agree to the{' '}
                 <span
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPolicyActiveTab('cancellation'); setShowPolicyModal(true); }}
                   style={{ color: 'var(--primary)', textDecoration: 'underline', fontWeight: 'bold' }}
                 >
                   Cancellation & Refund Policy
-                </span>.
-              </span>
-            </label>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={agreeFishCare}
-                onChange={(e) => setAgreeFishCare(e.target.checked)}
-                style={{ marginTop: '2px', cursor: 'pointer' }}
-              />
-              <span>
-                I have read the{' '}
+                </span>{' '}
+                and{' '}
                 <span
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPolicyActiveTab('fishcare'); setShowPolicyModal(true); }}
                   style={{ color: 'var(--primary)', textDecoration: 'underline', fontWeight: 'bold' }}
                 >
-                  Live Fish Care, Unboxing & Replacement Policy
+                  Live Fish Care Guide
                 </span>{' '}
-                and agree to follow all instructions.
+                of TEN Aquarium.
               </span>
             </label>
           </div>
@@ -855,7 +1006,7 @@ const Checkout = () => {
           {/* Place Order Button */}
           <button
             type="submit"
-            disabled={placingOrder || !courierService || !agreeTC || !agreeRefund || !agreeFishCare}
+            disabled={placingOrder || !courierService || !policyAccepted || zipLoading || !!zipError || !isZipValid || !area}
             className="btn btn-primary"
             style={{ width: '100%', padding: '0.8rem', marginTop: '1.5rem' }}
           >

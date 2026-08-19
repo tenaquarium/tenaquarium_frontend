@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './Cart.module.css';
 import { useNavigate, Link } from 'react-router-dom';
-import { ShoppingBag, Trash2, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Trash2, ArrowRight, ShieldAlert } from 'lucide-react';
 import Loader from '../components/Loader';
 import api from '../utils/api';
 import { useAlert } from '../context/AlertContext';
@@ -31,9 +31,9 @@ const Cart = () => {
     fetchCartAndDealers();
   }, []);
 
-  const handleQuantityChange = async (productId, newQty) => {
+  const handleQuantityChange = async (productId, color, newQty) => {
     try {
-      const res = await api.put('/cart', { productId, quantity: newQty });
+      const res = await api.put('/cart', { productId, color, quantity: newQty });
       setCart(res.data);
       window.dispatchEvent(new Event('cart-updated'));
     } catch (error) {
@@ -41,9 +41,9 @@ const Cart = () => {
     }
   };
 
-  const handleRemoveItem = async (productId) => {
+  const handleRemoveItem = async (productId, color) => {
     try {
-      const res = await api.delete(`/cart/${productId}`);
+      const res = await api.delete(`/cart/${productId}?color=${encodeURIComponent(color || '')}`);
       setCart(res.data);
       window.dispatchEvent(new Event('cart-updated'));
     } catch (error) {
@@ -121,12 +121,36 @@ const Cart = () => {
   };
 
   const { itemsWithOffers, total } = getCartTotals();
+  const getMinQtyViolations = () => {
+    if (!items || items.length === 0) return [];
+    const productGroups = {};
+    items.forEach(item => {
+      const prod = item.productId;
+      if (!prod) return;
+      const pid = prod._id.toString();
+      if (!productGroups[pid]) {
+        productGroups[pid] = {
+          name: prod.productName,
+          minQuantity: prod.minQuantity || 2,
+          totalQty: 0
+        };
+      }
+      productGroups[pid].totalQty += item.quantity;
+    });
+
+    return Object.values(productGroups).filter(g => g.totalQty < g.minQuantity);
+  };
+
+  const violations = getMinQtyViolations();
+  const hasViolations = violations.length > 0;
 
   if (items.length === 0) {
     return (
-      <div className="main-content" style={{ padding: '4rem 5%', textAlign: 'center' }}>
-        <div className="glass-panel" style={{ padding: '3rem', maxWidth: '600px', margin: '0 auto' }}>
-          <ShoppingBag size={48} style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }} />
+      <div className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', padding: '3rem 5%' }}>
+        <div style={{ textAlign: 'center', maxWidth: '450px' }}>
+          <div style={{ background: 'rgba(2, 132, 199, 0.08)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--primary)' }}>
+            <ShoppingBag size={36} />
+          </div>
           <h2 style={{ marginBottom: '0.8rem' }}>Your Cart is Empty</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
             Browse our catalog for beautiful fish, aquascaping decorations, tanks, and high-quality food.
@@ -151,11 +175,14 @@ const Cart = () => {
             if (!prod) return null;
 
             const minQty = prod.minQuantity || 2;
+            const maxStock = prod.hasVariants && item.color && item.color !== 'Standard'
+              ? (prod.variants?.find(v => v.color === item.color)?.stock || 0)
+              : prod.stock;
 
             return (
               <div key={item._id} className={`glass-panel ${styles['cart-item']}`}>
                 <img
-                  src={prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500'}
+                  src={item.image ? item.image : (prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500')}
                   alt={prod.productName}
                   className={styles['cart-item-img']}
                 />
@@ -163,7 +190,11 @@ const Cart = () => {
                 <div className={styles['cart-item-details']}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '600' }}>{prod.category}</span>
                   <Link to={`/products/${prod._id}`} className={styles['cart-item-name']}>
-                    {prod.productName}
+                    {prod.productName} {item.color && item.color !== 'Standard' && (
+                      <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold', marginLeft: '6px' }}>
+                        ({item.color})
+                      </span>
+                    )}
                   </Link>
                   <div>
                     {item.discount > 0 ? (
@@ -189,23 +220,27 @@ const Cart = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div className={styles['qty-selector']}>
                     <button
-                      onClick={() => handleQuantityChange(prod._id, item.quantity - 1)}
-                      disabled={item.quantity <= minQty}
+                      onClick={() => {
+                        if (item.quantity === 1) {
+                          handleRemoveItem(prod._id, item.color);
+                        } else {
+                          handleQuantityChange(prod._id, item.color, item.quantity - 1);
+                        }
+                      }}
                       className={styles['qty-btn']}
-                      title={`Minimum order quantity is ${minQty}`}
                     >
                       -
                     </button>
                     <span className={styles['qty-val']}>{item.quantity}</span>
                     <button
-                      onClick={() => handleQuantityChange(prod._id, item.quantity + 1)}
-                      disabled={item.quantity >= prod.stock}
+                      onClick={() => handleQuantityChange(prod._id, item.color, item.quantity + 1)}
+                      disabled={item.quantity >= maxStock}
                       className={styles['qty-btn']}
                     >
                       +
                     </button>
                   </div>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Min: {minQty}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Min Total: {minQty}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: '4px' }}>
@@ -214,7 +249,7 @@ const Cart = () => {
                 </div>
 
                 <button
-                  onClick={() => handleRemoveItem(prod._id)}
+                  onClick={() => handleRemoveItem(prod._id, item.color)}
                   className="btn btn-secondary"
                   style={{ padding: '0.5rem', color: 'var(--accent)', borderColor: 'rgba(244, 63, 94, 0.2)' }}
                   title="Remove Item"
@@ -224,6 +259,22 @@ const Cart = () => {
               </div>
             );
           })}
+
+          {hasViolations && (
+            <div className="glass-panel" style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '0.8rem', alignItems: 'center', color: '#f87171' }}>
+              <ShieldAlert size={20} style={{ flexShrink: 0 }} />
+              <div style={{ fontSize: '0.9rem', fontWeight: '500' }}>
+                Some products do not meet the minimum order quantities. Please adjust your selections:
+                <ul style={{ margin: '0.4rem 0 0 1.2rem', padding: 0 }}>
+                  {violations.map(v => (
+                    <li key={v.name}>
+                      {v.name}: Selected {v.totalQty} items (Minimum required: {v.minQuantity})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
 
           <div className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', alignItems: 'center', padding: '1.2rem 1.8rem', borderRadius: '16px' }}>
             <div>
@@ -237,7 +288,13 @@ const Cart = () => {
               <button onClick={handleClearCart} className="btn btn-secondary" style={{ color: 'var(--accent)', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }}>
                 Clear Cart
               </button>
-              <button onClick={() => navigate('/payment')} className="btn btn-primary" style={{ padding: '0.6rem 1.6rem', fontSize: '0.9rem', fontWeight: '700' }}>
+              <button 
+                onClick={() => navigate('/payment')} 
+                disabled={hasViolations}
+                className="btn btn-primary" 
+                style={{ padding: '0.6rem 1.6rem', fontSize: '0.9rem', fontWeight: '700', opacity: hasViolations ? 0.5 : 1, cursor: hasViolations ? 'not-allowed' : 'pointer' }}
+                title={hasViolations ? 'Please satisfy the minimum quantity requirements before checking out.' : ''}
+              >
                 Proceed to Payment
               </button>
             </div>

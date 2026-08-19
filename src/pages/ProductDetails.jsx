@@ -6,7 +6,13 @@ import api from '../utils/api';
 import { Star, ShoppingCart, Info, Award, Heart, MessageSquare, User, Phone, Mail, MapPin, Store } from 'lucide-react';
 import styles from './ProductDetails.module.css';
 import ProductCard from '../components/ProductCard';
-
+import { useQueryClient } from '@tanstack/react-query';
+import { 
+  useProductDetailsQuery, 
+  useProductReviewsQuery, 
+  useDealerReviewsQuery, 
+  useDealerProductsQuery 
+} from '../hooks/useProducts';
 
 const getDistrictFromAddress = (address) => {
   if (!address) return '';
@@ -21,16 +27,14 @@ const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
-  const [product, setProduct] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
-  const [dealerReviews, setDealerReviews] = useState([]);
-  const [dealerProducts, setDealerProducts] = useState([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedVariants, setSelectedVariants] = useState({}); // { [color]: qty }
   
   // Review form states
   const [newRating, setNewRating] = useState(5);
@@ -38,41 +42,45 @@ const ProductDetails = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
 
+  // Fetch using cached query hooks
+  const { data: productData, isLoading: productLoading } = useProductDetailsQuery(id);
+  const product = productData || null;
+
+  const sellerId = productData?.dealerId?._id || productData?.dealerId || null;
+  const dealerProfileId = productData?.dealerInfo?._id || null;
+
+  const { data: reviewsData } = useProductReviewsQuery(id);
+  const reviews = reviewsData || [];
+
+  const { data: dealerReviewsData } = useDealerReviewsQuery(sellerId);
+  const dealerReviews = dealerReviewsData || [];
+
+  const { data: dealerProductsData } = useDealerProductsQuery(dealerProfileId, id);
+  const dealerProducts = dealerProductsData || [];
+
+  const loading = productLoading && !product;
+
+  // Sync quantity and variants when loaded
   useEffect(() => {
-    const fetchProductDetails = async () => {
-      try {
-        const prodRes = await api.get(`/products/${id}`);
-        const productData = prodRes.data;
-        setProduct(productData);
-        setQuantity(productData.minQuantity || 2);
-        
-        const revRes = await api.get(`/reviews/product/${id}`);
-        setReviews(revRes.data);
-
-        // Fetch all reviews for this vendor
-        const sellerId = productData.dealerId?._id || productData.dealerId;
-        if (sellerId) {
-          const dealerRevRes = await api.get(`/reviews/dealer/${sellerId}`);
-          setDealerReviews(dealerRevRes.data);
-        }
-
-        // Fetch other products belonging to this dealer
-        if (productData.dealerInfo && productData.dealerInfo._id) {
-          const dealerProfileRes = await api.get(`/dealers/${productData.dealerInfo._id}/public`);
-          if (dealerProfileRes.data && dealerProfileRes.data.products) {
-            setDealerProducts(dealerProfileRes.data.products.filter(p => p._id !== id));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching product details', error);
-      } finally {
-        setLoading(false);
+    if (product) {
+      setQuantity(product.minQuantity || 2);
+      if (product.hasVariants && product.variants && product.variants.length > 0) {
+        setSelectedColor(product.variants[0].color);
+        const initial = {};
+        product.variants.forEach(v => {
+          initial[v.color] = 0;
+        });
+        setSelectedVariants(initial);
+      } else {
+        setSelectedColor('Standard');
+        setSelectedVariants({ 'Standard': product.minQuantity || 2 });
       }
-    };
+      setActiveImageIndex(0);
+    }
+  }, [product]);
 
-    fetchProductDetails();
-
-    // Wishlist check
+  // Wishlist check
+  useEffect(() => {
     const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
     setIsInWishlist(wishlist.includes(id));
   }, [id]);
@@ -95,6 +103,23 @@ const ProductDetails = () => {
     const newQty = quantity + val;
     if (newQty >= minQty && newQty <= (product?.stock || minQty)) {
       setQuantity(newQty);
+      // Synchronize selection state for single-variant
+      setSelectedVariants({ 'Standard': newQty });
+    }
+  };
+
+  const handleVariantQtyChange = (color, val) => {
+    const variant = product.variants.find(v => v.color === color);
+    if (!variant) return;
+
+    const currentQty = selectedVariants[color] || 0;
+    const newQty = currentQty + val;
+    
+    if (newQty >= 0 && newQty <= variant.stock) {
+      setSelectedVariants({
+        ...selectedVariants,
+        [color]: newQty
+      });
     }
   };
 
@@ -115,16 +140,62 @@ const ProductDetails = () => {
       return;
     }
 
+    // Determine items to add
+    const itemsToAdd = [];
+    const minQty = product.minQuantity || 2;
+
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      // Sum total quantities
+      const totalQty = Object.values(selectedVariants).reduce((sum, q) => sum + q, 0);
+      if (totalQty < minQty) {
+        alert(`Minimum total order quantity for this product is ${minQty} items. You have selected ${totalQty}. Please increase quantities.`);
+        return;
+      }
+
+      for (const [color, qty] of Object.entries(selectedVariants)) {
+        if (qty > 0) {
+          const variant = product.variants.find(v => v.color === color);
+          itemsToAdd.push({
+            productId: product._id,
+            color,
+            image: variant ? variant.image : '',
+            quantity: qty
+          });
+        }
+      }
+
+      if (itemsToAdd.length === 0) {
+        alert('Please select a quantity for at least one variant.');
+        return;
+      }
+    } else {
+      if (quantity < minQty) {
+        alert(`Minimum order quantity is ${minQty} items.`);
+        return;
+      }
+      itemsToAdd.push({
+        productId: product._id,
+        color: 'Standard',
+        image: product.images && product.images[0] ? product.images[0] : '',
+        quantity
+      });
+    }
+
     setAddingToCart(true);
     try {
-      await api.post('/cart', {
-        productId: product._id,
-        quantity,
-      });
+      // Add each item sequentially
+      for (const item of itemsToAdd) {
+        await api.post('/cart', {
+          productId: item.productId,
+          color: item.color,
+          image: item.image,
+          quantity: item.quantity,
+        });
+      }
       window.dispatchEvent(new Event('cart-updated'));
-      alert(`Successfully added ${quantity} ${product.productName} to cart!`);
+      alert(`Successfully added items to cart!`);
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to add item to cart.');
+      alert(error.response?.data?.message || 'Failed to add items to cart.');
     } finally {
       setAddingToCart(false);
     }
@@ -142,13 +213,9 @@ const ProductDetails = () => {
         review: newReview,
       });
 
-      // Reload reviews
-      const revRes = await api.get(`/reviews/product/${id}`);
-      setReviews(revRes.data);
-
-      // Reload product details (to refresh average rating & total reviews)
-      const prodRes = await api.get(`/products/${id}`);
-      setProduct(prodRes.data);
+      // Invalidate query caches
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'product', id] });
+      queryClient.invalidateQueries({ queryKey: ['product', id] });
 
       setNewReview('');
       alert('Thank you! Your review has been submitted and is pending admin approval.');
@@ -256,50 +323,78 @@ const ProductDetails = () => {
           
           {/* Left half: Product Image */}
           <div className={styles.productDetailsImageWrapper} style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '1rem', boxSizing: 'border-box', justifyContent: 'center', alignItems: 'center' }}>
+            {product.hasVariants && selectedColor && (
+              <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Selected Color: {selectedColor}
+              </div>
+            )}
             <div style={{ width: '100%', maxWidth: '280px', aspectRatio: '1/1', borderRadius: '1rem', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
               <img
-                src={product.images && product.images[activeImageIndex] ? product.images[activeImageIndex] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=600'}
+                src={(() => {
+                  const displayImages = product.hasVariants && product.variants && product.variants.length > 0
+                    ? product.variants.map(v => v.image)
+                    : (product.images || []);
+                  return displayImages[activeImageIndex] || 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=600';
+                })()}
                 alt={product.productName}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '1rem' }}
+                decoding="async"
               />
             </div>
             {/* Image gallery thumbnails */}
-            {product.images && product.images.length > 1 && (
-              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.8rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {product.images.map((imgUrl, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setActiveImageIndex(idx)}
-                    style={{
-                      width: '45px',
-                      height: '45px',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      border: activeImageIndex === idx ? '2.5px solid var(--primary)' : '1px solid rgba(2, 132, 199, 0.2)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      background: '#ffffff',
-                      boxShadow: activeImageIndex === idx ? '0 2px 8px rgba(2, 132, 199, 0.2)' : 'none',
-                      transform: activeImageIndex === idx ? 'scale(1.05)' : 'scale(1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (activeImageIndex !== idx) {
-                        e.currentTarget.style.borderColor = 'rgba(2, 132, 199, 0.6)';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (activeImageIndex !== idx) {
-                        e.currentTarget.style.borderColor = 'rgba(2, 132, 199, 0.2)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }
-                    }}
-                  >
-                    <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={`Thumb ${idx}`} />
-                  </div>
-                ))}
-              </div>
-            )}
+            {(() => {
+              const displayImages = product.hasVariants && product.variants && product.variants.length > 0
+                ? product.variants.map(v => v.image)
+                : (product.images || []);
+              if (displayImages.length <= 1) return null;
+              return (
+                <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.8rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {displayImages.map((imgUrl, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setActiveImageIndex(idx);
+                        if (product.hasVariants && product.variants && product.variants[idx]) {
+                          setSelectedColor(product.variants[idx].color);
+                        }
+                      }}
+                      style={{
+                        width: '45px',
+                        height: '45px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: activeImageIndex === idx ? '2.5px solid var(--primary)' : '1px solid rgba(2, 132, 199, 0.2)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        background: '#ffffff',
+                        boxShadow: activeImageIndex === idx ? '0 2px 8px rgba(2, 132, 199, 0.2)' : 'none',
+                        transform: activeImageIndex === idx ? 'scale(1.05)' : 'scale(1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (activeImageIndex !== idx) {
+                          e.currentTarget.style.borderColor = 'rgba(2, 132, 199, 0.6)';
+                          e.currentTarget.style.transform = 'scale(1.02)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeImageIndex !== idx) {
+                          e.currentTarget.style.borderColor = 'rgba(2, 132, 199, 0.2)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }
+                      }}
+                    >
+                      <img 
+                        src={imgUrl} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        alt={`Thumb ${idx}`} 
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Right half: Product Info details */}
@@ -353,7 +448,7 @@ const ProductDetails = () => {
               );
             })()}
 
-            <p className={`details-desc ${styles.productDesc}`}>{product.description}</p>
+
 
             <div className={`details-meta-row ${styles.detailsMetaRow}`}>
               <div>
@@ -381,27 +476,83 @@ const ProductDetails = () => {
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                   Minimum Order Quantity: <strong>{product.minQuantity || 2} items</strong>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
-                    <button 
-                      type="button"
-                      onClick={() => handleQtyChange(-1)} 
-                      style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      -
-                    </button>
-                    <span style={{ padding: '0.5rem 1.2rem', minWidth: '40px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                      {quantity}
-                    </span>
-                    <button 
-                      type="button"
-                      onClick={() => handleQtyChange(1)} 
-                      style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      +
-                    </button>
+
+                {product.hasVariants && product.variants && product.variants.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%', marginTop: '0.5rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.2rem' }}>Select Color Quantities:</div>
+                    {product.variants.map((v) => (
+                      <div key={v.color} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <img src={v.image} style={{ width: '35px', height: '35px', objectFit: 'cover', borderRadius: '4px' }} alt={v.color} />
+                          <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{v.color}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Stock: {v.stock})</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ width: '28px', height: '28px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+                            onClick={() => handleVariantQtyChange(v.color, -1)}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontWeight: 'bold', width: '18px', textAlign: 'center', fontSize: '0.9rem' }}>
+                            {selectedVariants[v.color] || 0}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ width: '28px', height: '28px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+                            onClick={() => handleVariantQtyChange(v.color, 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Selected Summary */}
+                    {Object.values(selectedVariants).some(q => q > 0) && (
+                      <div style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '8px' }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#10b981', marginBottom: '0.3rem' }}>Selected Variants Summary:</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          {Object.entries(selectedVariants).filter(([_, q]) => q > 0).map(([color, q]) => (
+                            <div key={color} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>{color}</span>
+                              <span style={{ fontWeight: 'bold' }}>x {q}</span>
+                            </div>
+                          ))}
+                          <div style={{ borderTop: '1px dashed rgba(255,255,255,0.08)', marginTop: '0.3rem', paddingTop: '0.3rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                            <span>Total Quantity</span>
+                            <span>{Object.values(selectedVariants).reduce((sum, q) => sum + q, 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
+                      <button 
+                        type="button"
+                        onClick={() => handleQtyChange(-1)} 
+                        style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        -
+                      </button>
+                      <span style={{ padding: '0.5rem 1.2rem', minWidth: '40px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                        {quantity}
+                      </span>
+                      <button 
+                        type="button"
+                        onClick={() => handleQtyChange(1)} 
+                        style={{ padding: '0.5rem 1rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className={styles.productPurchaseRow} style={{ marginTop: '0.5rem' }}>
                   <button

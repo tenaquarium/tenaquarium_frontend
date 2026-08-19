@@ -67,13 +67,19 @@
   padding: 0;
 }
 
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
 body {
   font-family: var(--font-sans);
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%) !important;
   color: var(--text-primary);
   line-height: 1.5;
-  overflow-x: hidden;
   min-height: 100vh;
+  margin: 0;
+  padding: 0;
 }
 
 a {

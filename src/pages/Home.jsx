@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import Testimonials from '../components/Testimonials';
 import Loader from '../components/Loader';
 import api from '../utils/api';
+import AnimatedHero from '../components/AnimatedHero';
 import { Fish, ShieldAlert, Award, Zap, Compass } from 'lucide-react';
 import plantedTankImg from '../assets/planted_tank.png';
 import marineTankImg from '../assets/marine_tank.png';
@@ -152,6 +153,43 @@ const Home = () => {
 
   return (
     <div className="main-content">
+      {/* Responsive Campaign Video Banner */}
+      <div 
+        style={{ 
+          width: '100%', 
+          padding: '2rem 5% 0',
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center' 
+        }}
+      >
+        <div 
+          style={{ 
+            width: '100%', 
+            maxWidth: '1200px', 
+            borderRadius: '16px', 
+            overflow: 'hidden', 
+            boxShadow: '0 12px 40px rgba(2, 132, 199, 0.15)',
+            border: '1px solid rgba(2, 132, 199, 0.2)',
+            background: '#000000'
+          }}
+        >
+          <video 
+            src="/hero_campaign_video.mp4" 
+            autoPlay 
+            muted 
+            loop 
+            playsInline 
+            style={{ 
+              width: '100%', 
+              height: 'auto', 
+              display: 'block',
+              objectFit: 'contain'
+            }}
+          />
+        </div>
+      </div>
+
       {/* Hero Banner */}
       <header className={styles['home-hero']}>
         <h1 className={styles['hero-title']}>Discover the Wonders of the Deep Blue</h1>
@@ -167,84 +205,6 @@ const Home = () => {
           </button>
         </div>
       </header>
-
-      {/* Special Campaign Offers Box */}
-      <div 
-        className="glass-panel" 
-        style={{ 
-          margin: '2rem 5% 0', 
-          padding: '1.5rem', 
-          borderRadius: '16px', 
-          border: '1px solid rgba(245, 158, 11, 0.3)', 
-          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
-          <Zap size={22} style={{ color: 'var(--warning)', filter: 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.5))' }} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0, color: 'var(--text-main)', letterSpacing: '0.5px' }}>
-            Exclusive Store Offers & Deals
-          </h3>
-        </div>
-
-        {activeOffers.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {dealers.filter(d => d.customOfferText || d.discountPercentage > 0).map((dealer, idx) => (
-              <div 
-                key={dealer._id || idx}
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  padding: '0.8rem 1rem', 
-                  borderRadius: '10px', 
-                  background: 'rgba(255, 255, 255, 0.03)', 
-                  border: '1px solid rgba(255, 255, 255, 0.05)'
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{dealer.businessName}</strong>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {dealer.customOfferText || `Flat ${dealer.discountPercentage}% discount on all products!`}
-                  </div>
-                </div>
-                <button 
-                  onClick={() => navigate('/products')} 
-                  className="btn btn-primary"
-                  style={{ padding: '4px 12px', fontSize: '0.75rem' }}
-                >
-                  View Deals
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div 
-            style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              flexWrap: 'wrap', 
-              gap: '1rem',
-              padding: '0.5rem 0 0 0'
-            }}
-          >
-            <div style={{ maxWidth: '75%' }}>
-              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                Buy directly from certified local aquarium stores and save big. Chat directly with dealers to claim custom wholesale quotes and custom setup combo offers!
-              </p>
-            </div>
-            <button 
-              onClick={() => navigate('/custom-setups')} 
-              className="btn btn-secondary"
-              style={{ padding: '0.6rem 1.2rem', fontSize: '0.8rem' }}
-            >
-              Consult Designers
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Categories Section */}
       <section style={{ padding: '2rem 5%' }}>

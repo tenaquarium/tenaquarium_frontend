@@ -5,8 +5,11 @@ import Loader from '../components/Loader';
 import { useAlert } from '../context/AlertContext';
 import { Shield, Users, Store, Package, DollarSign, FileText, Check, X, Edit, Trash2, ShieldAlert, CheckCircle, MessageSquare, Truck, Plus, Menu, Clock, TrendingUp, Settings } from 'lucide-react';
 
+import { useInvalidateProductCache } from '../hooks/useProducts';
+
 const AdminDashboard = () => {
   const { showConfirm, showPrompt } = useAlert();
+  const invalidateProductCache = useInvalidateProductCache();
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState(null);
@@ -83,7 +86,10 @@ const AdminDashboard = () => {
   // Courier States
   const [rates, setRates] = useState([]);
   const [zones, setZones] = useState([]);
-  const [courierTab, setCourierTab] = useState('rates'); // 'rates' or 'zones'
+  const [courierTab, setCourierTab] = useState('rates'); // 'rates' or 'zones' or 'freeShipping'
+  const [promoStatus, setPromoStatus] = useState('OFF');
+  const [promoStartDate, setPromoStartDate] = useState('');
+  const [promoEndDate, setPromoEndDate] = useState('');
 
   // Categories States
   const [categoriesList, setCategoriesList] = useState([]);
@@ -197,6 +203,17 @@ const AdminDashboard = () => {
       setRates(ratesRes.data);
       setZones(zonesRes.data);
       setCategoriesList(catsRes.data);
+
+      try {
+        const settingsRes = await api.get('/settings/free-shipping');
+        if (settingsRes.data) {
+          setPromoStatus(settingsRes.data.status || 'OFF');
+          setPromoStartDate(settingsRes.data.startDate || '');
+          setPromoEndDate(settingsRes.data.endDate || '');
+        }
+      } catch (settingsErr) {
+        console.error('Error fetching settings for free shipping promo:', settingsErr);
+      }
     } catch (error) {
       console.error('Error fetching admin dashboard data', error);
     } finally {
@@ -352,6 +369,7 @@ const AdminDashboard = () => {
         stock: Number(editProdStock),
       });
       alert('Product listings updated');
+      invalidateProductCache();
       setShowEditModal(null);
       fetchAdminData();
     } catch (error) {
@@ -365,6 +383,7 @@ const AdminDashboard = () => {
       try {
         await api.delete(`/products/${id}`);
         alert('Product deleted');
+        invalidateProductCache();
         fetchAdminData();
       } catch (error) {
         alert('Failed to delete product');
@@ -393,6 +412,20 @@ const AdminDashboard = () => {
       } catch (error) {
         alert('Failed to cancel order.');
       }
+    }
+  };
+
+  const handleSavePromoConfig = async () => {
+    try {
+      await api.post('/settings/free-shipping', {
+        status: promoStatus,
+        startDate: promoStartDate,
+        endDate: promoEndDate,
+      });
+      alert('Free shipping campaign configuration updated successfully!');
+      fetchAdminData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update campaign configurations.');
     }
   };
 
@@ -1489,17 +1522,19 @@ const AdminDashboard = () => {
             <div>
               <div className={styles['dashboard-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h1 className={styles['dashboard-title']}>Courier & Logistics Settings</h1>
-                <button
-                  onClick={courierTab === 'rates' ? openAddRate : openAddZone}
-                  className="btn btn-primary"
-                >
-                  <Plus size={16} />
-                  {courierTab === 'rates' ? 'Add Rate Card' : 'Add Zone Mapping'}
-                </button>
+                {courierTab !== 'freeShipping' && (
+                  <button
+                    onClick={courierTab === 'rates' ? openAddRate : openAddZone}
+                    className="btn btn-primary"
+                  >
+                    <Plus size={16} />
+                    {courierTab === 'rates' ? 'Add Rate Card' : 'Add Zone Mapping'}
+                  </button>
+                )}
               </div>
 
               {/* Subtabs for rates vs zones */}
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => setCourierTab('rates')}
                   className="btn"
@@ -1523,6 +1558,18 @@ const AdminDashboard = () => {
                   }}
                 >
                   Zone Mappings ({zones.length})
+                </button>
+                <button
+                  onClick={() => setCourierTab('freeShipping')}
+                  className="btn"
+                  style={{
+                    padding: '0.5rem 1.2rem',
+                    background: courierTab === 'freeShipping' ? 'var(--primary)' : 'transparent',
+                    color: courierTab === 'freeShipping' ? 'white' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  Free Shipping Campaign
                 </button>
               </div>
 
@@ -1632,6 +1679,69 @@ const AdminDashboard = () => {
                 </div>
               )}
 
+              {courierTab === 'freeShipping' && (
+                <div className="glass-panel" style={{ padding: '2rem', maxWidth: '600px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem' }}>
+                    Free Shipping Promo Campaign Configuration
+                  </h3>
+
+                  <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="form-label">Campaign Status</label>
+                    <div style={{ display: 'flex', gap: '2rem', marginTop: '0.4rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '600' }}>
+                        <input
+                          type="radio"
+                          name="promoStatus"
+                          checked={promoStatus === 'OFF'}
+                          onChange={() => setPromoStatus('OFF')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        Campaign Disabled (OFF)
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '600' }}>
+                        <input
+                          type="radio"
+                          name="promoStatus"
+                          checked={promoStatus === 'ON'}
+                          onChange={() => setPromoStatus('ON')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        Campaign Active (ON)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Campaign Start Date</label>
+                      <input
+                        type="date"
+                        value={promoStartDate}
+                        onChange={(e) => setPromoStartDate(e.target.value)}
+                        className="form-control"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Campaign End Date</label>
+                      <input
+                        type="date"
+                        value={promoEndDate}
+                        onChange={(e) => setPromoEndDate(e.target.value)}
+                        className="form-control"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSavePromoConfig}
+                    className="btn btn-primary"
+                    style={{ padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: '700' }}
+                  >
+                    Save Campaign Configuration
+                  </button>
+                </div>
+              )}
 
             </div>
           )}

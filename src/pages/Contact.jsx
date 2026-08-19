@@ -4,8 +4,11 @@ import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
+import { useLocation } from 'react-router-dom';
+
 const Contact = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -26,6 +29,16 @@ const Contact = () => {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    if (location.state?.subject || location.state?.message) {
+      setFormData(prev => ({
+        ...prev,
+        subject: location.state.subject || prev.subject,
+        message: location.state.message || prev.message,
+      }));
+    }
+  }, [location.state]);
 
   // Remove scrollbar on Contact page
   useEffect(() => {

@@ -7,10 +7,12 @@ import api from '../utils/api';
 import { useAlert } from '../context/AlertContext';
 import { Store, Plus, Edit, Trash2, Package, Check, Truck, User, DollarSign, Settings, ShoppingCart, X, Upload, ShieldAlert, Eye, EyeOff, TrendingUp, Clock } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import { useInvalidateProductCache } from '../hooks/useProducts';
 
 const DealerDashboard = () => {
   const { user, updateProfile } = useAuth();
   const { showConfirm } = useAlert();
+  const invalidateProductCache = useInvalidateProductCache();
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState(null);
@@ -132,6 +134,8 @@ const DealerDashboard = () => {
   const [prodImages, setProdImages] = useState([]);
   const [prodIsReturnable, setProdIsReturnable] = useState(true);
   const [prodMinQty, setProdMinQty] = useState('2');
+  const [hasVariants, setHasVariants] = useState(false);
+  const [variants, setVariants] = useState([]);
 
   const [categories, setCategories] = useState([
     'Aquarium Fish',
@@ -310,6 +314,26 @@ const DealerDashboard = () => {
 
   const handleRemoveProductImage = (indexToRemove) => {
     setProdImages((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleVariantImageUpload = (index, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit. Please upload a smaller image.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const updated = [...variants];
+      updated[index].image = reader.result;
+      setVariants(updated);
+    };
+    reader.onerror = () => {
+      alert('Failed to read file. Please try another image.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleProfileUpdate = async (e) => {
@@ -820,6 +844,8 @@ const DealerDashboard = () => {
     setProdImages([]);
     setProdIsReturnable(true);
     setProdMinQty('2');
+    setHasVariants(false);
+    setVariants([]);
     setShowProductModal(true);
   };
 
@@ -835,6 +861,8 @@ const DealerDashboard = () => {
     setProdImages(product.images || []);
     setProdIsReturnable(product.isReturnable !== undefined ? product.isReturnable : true);
     setProdMinQty((product.minQuantity || 2).toString());
+    setHasVariants(product.hasVariants || false);
+    setVariants(product.variants || []);
     setShowProductModal(true);
   };
 
@@ -937,15 +965,37 @@ Aquarium Care & Environment Requirements:
     e.preventDefault();
     const parsedImages = prodImages.filter((img) => img && img.trim() !== '');
 
+    if (hasVariants) {
+      if (variants.length === 0) {
+        alert('Please add at least one color/variant.');
+        return;
+      }
+      for (const v of variants) {
+        if (!v.color || !v.color.trim()) {
+          alert('Please enter a color name for all variants.');
+          return;
+        }
+        if (!v.image || !v.image.trim()) {
+          alert('Please upload/enter an image for all variants.');
+          return;
+        }
+      }
+    }
+
+    const calculatedStock = hasVariants
+      ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : Number(prodStock);
+
     const productData = {
       productName: prodName,
-      description: prodDesc,
       category: prodCat,
       price: Number(prodPrice),
-      stock: Number(prodStock),
+      stock: calculatedStock,
       images: parsedImages.length > 0 ? parsedImages : undefined,
       isReturnable: prodIsReturnable,
       minQuantity: Number(prodMinQty) || 2,
+      hasVariants,
+      variants
     };
 
     try {
@@ -956,6 +1006,7 @@ Aquarium Care & Environment Requirements:
         await api.put(`/products/${selectedProduct._id}`, productData);
         alert('Product updated successfully!');
       }
+      invalidateProductCache();
       setShowProductModal(false);
       fetchDashboardData();
     } catch (error) {
@@ -970,6 +1021,7 @@ Aquarium Care & Environment Requirements:
       try {
         await api.delete(`/products/${prodId}`);
         alert('Product deleted successfully.');
+        invalidateProductCache();
         fetchDashboardData();
       } catch (error) {
         alert('Failed to delete product.');
@@ -1380,16 +1432,15 @@ Aquarium Care & Environment Requirements:
                     <Package size={16} style={{ color: 'var(--accent)' }} />
                     <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--accent)' }}>Total Products: {products.length}</span>
                   </div>
-                  <button onClick={openCreateModal} className="btn btn-primary">
-                    <Plus size={16} />
-                    Add Product
+                  <button onClick={openCreateModal} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1.2rem', fontSize: '0.9rem' }}>
+                    <Plus size={16} /> Add Product
                   </button>
                 </div>
               </div>
 
               {products.length === 0 ? (
                 <div className="glass-panel" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  You have not uploaded any products yet. Click "Add Product" to make your first listing.
+                  You do not have any active product listings.
                 </div>
               ) : (
                 <div className="glass-panel" style={{ padding: '2rem' }}>
@@ -1549,12 +1600,18 @@ Aquarium Care & Environment Requirements:
                               <div key={item._id} style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                   <img
-                                    src={prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200'}
+                                    src={item.image ? item.image : (prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200')}
                                     alt={prod.productName}
                                     style={{ width: '50px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                                   />
                                   <div>
-                                    <h6 style={{ fontWeight: '700', margin: 0 }}>{prod.productName}</h6>
+                                    <h6 style={{ fontWeight: '700', margin: 0 }}>
+                                      {prod.productName} {item.color && item.color !== 'Standard' && (
+                                        <span style={{ color: 'var(--primary)', fontSize: '0.8rem', marginLeft: '6px' }}>
+                                          ({item.color})
+                                        </span>
+                                      )}
+                                    </h6>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                                       Qty: {item.quantity} | Unit Price: ₹{item.price.toLocaleString()}
                                     </span>
@@ -2331,12 +2388,18 @@ Aquarium Care & Environment Requirements:
                             <div key={item._id} style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                 <img
-                                  src={prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200'}
+                                  src={item.image ? item.image : (prod.images && prod.images[0] ? prod.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=200')}
                                   alt={prod.productName}
                                   style={{ width: '60px', height: '50px', objectFit: 'cover', borderRadius: '6px' }}
                                 />
                                 <div>
-                                  <h5 style={{ fontWeight: '700' }}>{prod.productName}</h5>
+                                  <h5 style={{ fontWeight: '700' }}>
+                                    {prod.productName} {item.color && item.color !== 'Standard' && (
+                                      <span style={{ color: 'var(--primary)', fontSize: '0.85rem', marginLeft: '6px' }}>
+                                        ({item.color})
+                                      </span>
+                                    )}
+                                  </h5>
                                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                     Category: {prod.category} | Qty: {item.quantity} | Price: ₹{item.price.toLocaleString()}
                                   </span>
@@ -2862,27 +2925,7 @@ Aquarium Care & Environment Requirements:
                 />
               </div>
 
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                  <label className="form-label" style={{ margin: 0 }}>Description</label>
-                  <button
-                    type="button"
-                    onClick={handleGenerateAIProductDescription}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: 0 }}
-                  >
-                    ✨ Auto-Generate with AI
-                  </button>
-                </div>
-                <textarea
-                  required
-                  rows={3}
-                  value={prodDesc}
-                  onChange={(e) => setProdDesc(e.target.value)}
-                  className="form-control"
-                  placeholder="Describe items, dimensions, and specifications..."
-                  style={{ resize: 'vertical' }}
-                ></textarea>
-              </div>
+
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
@@ -2914,82 +2957,227 @@ Aquarium Care & Environment Requirements:
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Initial Stock Inventory</label>
-                <input
-                  type="number"
-                  required
-                  value={prodStock}
-                  onChange={(e) => setProdStock(e.target.value)}
-                  className="form-control"
-                  placeholder="e.g. 20"
-                />
+              <div className="form-group" style={{ marginBottom: '1.2rem' }}>
+                <label className="form-label">Does this product have different colors/variants?</label>
+                <div style={{ display: 'flex', gap: '2rem', marginTop: '0.4rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                    <input
+                      type="radio"
+                      name="hasVariants"
+                      checked={!hasVariants}
+                      onChange={() => setHasVariants(false)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    No
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+                    <input
+                      type="radio"
+                      name="hasVariants"
+                      checked={hasVariants}
+                      onChange={() => setHasVariants(true)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Yes
+                  </label>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Minimum Purchase Quantity for Customers</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={prodMinQty}
-                  onChange={(e) => setProdMinQty(e.target.value)}
-                  className="form-control"
-                  placeholder="e.g. 2"
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label className="form-label">Product Images</label>
-                
-                {/* Image Previews */}
-                {prodImages.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.8rem', marginBottom: '1rem' }}>
-                    {prodImages.map((img, idx) => (
-                      <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                        <img src={img} alt={`Preview ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProductImage(idx)}
-                          style={{
-                            position: 'absolute',
-                            top: '2px',
-                            right: '2px',
-                            background: 'rgba(225, 29, 72, 0.9)',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '18px',
-                            height: '18px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            fontSize: '10px',
-                            fontWeight: 'bold',
-                            padding: 0
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+              {!hasVariants ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Initial Stock Inventory</label>
+                    <input
+                      type="number"
+                      required
+                      value={prodStock}
+                      onChange={(e) => setProdStock(e.target.value)}
+                      className="form-control"
+                      placeholder="e.g. 20"
+                    />
                   </div>
-                )}
-                
-                {/* Upload Trigger Button */}
-                <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '0.6rem 1rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', margin: 0 }}>
-                  <Upload size={14} />
-                  Upload from Device Gallery
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleProductImageUpload}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-              </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Minimum Purchase Quantity for Customers</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={prodMinQty}
+                      onChange={(e) => setProdMinQty(e.target.value)}
+                      className="form-control"
+                      placeholder="e.g. 2"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="form-label">Product Images</label>
+                    
+                    {/* Image Previews */}
+                    {prodImages.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.8rem', marginBottom: '1rem' }}>
+                        {prodImages.map((img, idx) => (
+                          <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                            <img src={img} alt={`Preview ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductImage(idx)}
+                              style={{
+                                position: 'absolute',
+                                top: '2px',
+                                right: '2px',
+                                background: 'rgba(225, 29, 72, 0.9)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                padding: 0
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Upload Trigger Button */}
+                    <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '0.6rem 1rem', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', margin: 0 }}>
+                      <Upload size={14} />
+                      Upload from Device Gallery
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleProductImageUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Minimum Purchase Quantity for Customers</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={prodMinQty}
+                      onChange={(e) => setProdMinQty(e.target.value)}
+                      className="form-control"
+                      placeholder="e.g. 2"
+                    />
+                  </div>
+
+                  <div style={{ border: '1px solid rgba(255, 255, 255, 0.1)', padding: '1rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.01)', marginBottom: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: '700', fontSize: '0.95rem' }}>Product Variants & Colors</label>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => setVariants([...variants, { color: '', image: '', stock: 0 }])}
+                      >
+                        <Plus size={12} /> Add Variant
+                      </button>
+                    </div>
+
+                    {variants.length === 0 ? (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
+                        No variants added yet. Click "Add Variant" to add colors.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {variants.map((v, index) => (
+                          <div key={index} style={{ border: '1px solid rgba(255, 255, 255, 0.05)', padding: '0.8rem', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.01)', position: 'relative' }}>
+                            <button
+                              type="button"
+                              onClick={() => setVariants(variants.filter((_, idx) => idx !== index))}
+                              style={{ position: 'absolute', top: '8px', right: '8px', background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer' }}
+                              title="Remove Variant"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.8rem', marginBottom: '0.6rem' }}>
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Color Name</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={v.color}
+                                  onChange={(e) => {
+                                    const updated = [...variants];
+                                    updated[index].color = e.target.value;
+                                    setVariants(updated);
+                                  }}
+                                  className="form-control"
+                                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+                                  placeholder="e.g. Purple"
+                                />
+                              </div>
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Stock</label>
+                                <input
+                                  type="number"
+                                  required
+                                  min="0"
+                                  value={v.stock}
+                                  onChange={(e) => {
+                                    const updated = [...variants];
+                                    updated[index].stock = Number(e.target.value);
+                                    setVariants(updated);
+                                  }}
+                                  className="form-control"
+                                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
+                                  placeholder="e.g. 10"
+                                />
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              {v.image ? (
+                                <div style={{ position: 'relative', width: '50px', height: '50px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                  <img src={v.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Variant Preview" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...variants];
+                                      updated[index].image = '';
+                                      setVariants(updated);
+                                    }}
+                                    style={{ position: 'absolute', top: '1px', right: '1px', background: 'rgba(225, 29, 72, 0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '8px', padding: 0 }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                                  <Upload size={12} /> Upload Image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleVariantImageUpload(index, e)}
+                                    style={{ display: 'none' }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="form-group" style={{ marginTop: '1.2rem', marginBottom: '1.2rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-primary)', margin: 0 }}>

@@ -29,12 +29,18 @@ const CustomSetupsExplorer = () => {
 
   const handleInquiry = (dealerUserId) => {
     if (!user) {
-      alert('Please log in as a customer to chat with dealers!');
+      alert('Please log in as a customer to consult with designers!');
       navigate('/login');
       return;
     }
-    // Navigate to Chat Center and auto-select this dealer
-    navigate('/chats', { state: { autoStartChatWith: dealerUserId } });
+    // Navigate to Contact Us page and prefill details
+    const dealerName = dealers.find(d => (d.userId?._id || d.userId || '').toString() === dealerUserId.toString())?.businessName || 'Designer';
+    navigate('/contact', { 
+      state: { 
+        subject: `Consulting Inquiry - ${dealerName}`,
+        message: `Hello! I would like to consult regarding a custom Nature Aquarium setup. (Dealer Reference: ${dealerUserId})`
+      } 
+    });
   };
 
   const getSetupImage = (setupType) => {

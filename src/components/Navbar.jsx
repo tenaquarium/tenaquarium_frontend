@@ -3,7 +3,7 @@ import styles from './Navbar.module.css';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
-import { ShoppingCart, Heart, LogOut, LayoutDashboard, Menu, X, MessageSquare } from 'lucide-react';
+import { ShoppingCart, Heart, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
 import NotificationDropdown from './NotificationDropdown';
 import api from '../utils/api';
 
@@ -13,7 +13,6 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -36,32 +35,6 @@ const Navbar = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
-
-  // Poll unread messages
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (token && user) {
-        try {
-          const res = await api.get('/messages/conversations');
-          const totalUnread = res.data.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-          setUnreadMessages(totalUnread);
-        } catch (error) {
-          console.error('Error fetching unread message count for navbar', error);
-        }
-      }
-    };
-
-    fetchUnreadCount();
-
-    let interval = null;
-    if (token && user) {
-      interval = setInterval(fetchUnreadCount, 5000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [token, user]);
 
   // Load cart items quantity when cart changes or user logs in
   useEffect(() => {
@@ -130,14 +103,6 @@ const Navbar = () => {
       <div className={styles['nav-actions']}>
         {user ? (
           <>
-            <Link to="/chats" className={styles['wishlist-btn-3d']} title="Inbox Messages" style={{ position: 'relative' }}>
-              <MessageSquare size={22} />
-              {unreadMessages > 0 && (
-                <span className={styles['cart-badge']} style={{ background: '#ef4444' }}>
-                  {unreadMessages}
-                </span>
-              )}
-            </Link>
 
             {(user.role === 'customer' || user.role === 'dealer') && (
               <>
@@ -219,14 +184,6 @@ const Navbar = () => {
             {user ? (
               <>
                 <div className={styles['wishlist-cart-row']}>
-                  <Link to="/chats" className={styles['wishlist-btn-3d']} title="Inbox Messages" style={{ position: 'relative' }}>
-                    <MessageSquare size={22} />
-                    {unreadMessages > 0 && (
-                      <span className={styles['cart-badge']} style={{ background: '#ef4444' }}>
-                        {unreadMessages}
-                      </span>
-                    )}
-                  </Link>
                   {(user.role === 'customer' || user.role === 'dealer') && (
                     <>
                       <Link to="/wishlist" className={styles['wishlist-btn-3d']} title="Wishlist">

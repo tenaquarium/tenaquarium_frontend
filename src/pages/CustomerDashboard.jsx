@@ -384,6 +384,27 @@ const CustomerDashboard = () => {
     }
   };
 
+  const handleSubmittingRefundBankDetails = async (e, orderId) => {
+    e.preventDefault();
+    const accountHolderName = document.getElementById(`holder-${orderId}`).value;
+    const bankName = document.getElementById(`bank-${orderId}`).value;
+    const accountNumber = document.getElementById(`acc-${orderId}`).value;
+    const ifscCode = document.getElementById(`ifsc-${orderId}`).value;
+
+    try {
+      await api.put(`/orders/${orderId}/refund-bank-details`, {
+        accountHolderName,
+        bankName,
+        accountNumber,
+        ifscCode
+      });
+      alert('Refund bank details submitted successfully. Admin has been notified.');
+      fetchOrders();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to submit refund bank details.');
+    }
+  };
+
   const handleReturnOrder = async (orderId) => {
     const confirm = await showConfirm('Are you sure you want to return this order? This action is final.');
     if (confirm) {
@@ -772,6 +793,85 @@ const CustomerDashboard = () => {
                                   <img src={ord.finalBoxImage} alt="Package Box" style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
                                 </div>
                               </div>
+                            </div>
+                          )}
+
+                          {ord.orderStatus === 'Cancelled' && ord.cancellationDetails?.needBankDetails === true && (
+                            <div style={{ marginTop: '1.2rem', padding: '1.25rem', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px' }}>
+                              <h4 style={{ color: 'var(--accent)', fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                ⚠️ Refund Account Details Required
+                              </h4>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.2rem', lineHeight: '1.5' }}>
+                                This order was cancelled by the {ord.cancellationDetails?.cancelledBy || 'store'}. Please submit your bank details below to receive your 100% full refund of <strong>₹{ord.cancellationDetails?.refundAmount?.toLocaleString()}</strong>.
+                              </p>
+                              
+                              <form onSubmit={(e) => handleSubmittingRefundBankDetails(e, ord._id)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Account Holder Name</label>
+                                  <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="Account Holder Name" 
+                                    id={`holder-${ord._id}`}
+                                    style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-main)' }} 
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Bank Name</label>
+                                  <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="e.g. SBI, HDFC" 
+                                    id={`bank-${ord._id}`}
+                                    style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-main)' }} 
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Account Number</label>
+                                  <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="Account Number" 
+                                    id={`acc-${ord._id}`}
+                                    style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-main)' }} 
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>IFSC Code</label>
+                                  <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="IFSC Code" 
+                                    id={`ifsc-${ord._id}`}
+                                    style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-main)' }} 
+                                  />
+                                </div>
+                                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '0.4rem' }}>
+                                  <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 2rem', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                    Submit Refund Details
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          )}
+
+                          {ord.orderStatus === 'Cancelled' && ord.cancellationDetails && !ord.cancellationDetails.needBankDetails && (
+                            <div style={{ marginTop: '1.2rem', padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '0.88rem', lineHeight: '1.6' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '0.6rem', letterSpacing: '0.5px' }}>
+                                🚫 CANCELLATION & REFUND DETAILS
+                              </span>
+                              <div>• <strong>Cancelled By:</strong> <span style={{ textTransform: 'capitalize', fontWeight: '600' }}>{ord.cancellationDetails.cancelledBy || 'Customer'}</span></div>
+                              {ord.cancellationDetails.cancellationReason && (
+                                <div>• <strong>Cancellation Reason:</strong> {ord.cancellationDetails.cancellationReason}</div>
+                              )}
+                              <div>• <strong>Refundable Amount:</strong> <strong style={{ color: 'var(--success)' }}>₹{ord.cancellationDetails.refundAmount?.toLocaleString()}</strong> ({ord.cancellationDetails.refundPercentage}% of total)</div>
+                              <div>• <strong>Refund Status:</strong> <span style={{ fontWeight: '800', color: ord.cancellationDetails.refundStatus === 'Completed' ? 'var(--success)' : 'var(--warning)' }}>{ord.cancellationDetails.refundStatus || 'Pending'}</span></div>
+                              
+                              {ord.cancellationDetails.bankName && (
+                                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                                  <strong>Refund Bank Account:</strong> {ord.cancellationDetails.accountHolderName || 'N/A'} | {ord.cancellationDetails.bankName} | Acc: {ord.cancellationDetails.accountNumber} | IFSC: {ord.cancellationDetails.ifscCode}
+                                </div>
+                              )}
                             </div>
                           )}
 
