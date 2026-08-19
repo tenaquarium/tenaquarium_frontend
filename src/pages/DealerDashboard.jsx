@@ -3578,6 +3578,19 @@ Aquarium Care & Environment Requirements:
 
             {/* Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem', marginTop: '1.2rem' }}>
+              {['Processing', 'Placed', 'Pending'].includes(selectedOrderDetails.orderStatus) && (
+                <button
+                  onClick={async () => {
+                    const ordId = selectedOrderDetails._id;
+                    await handleCancelCustomerOrder(ordId);
+                    setSelectedOrderDetails(null);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ color: 'var(--accent)', borderColor: 'rgba(244, 63, 94, 0.2)', cursor: 'pointer', padding: '0.5rem 1.2rem' }}
+                >
+                  Cancel Order
+                </button>
+              )}
               {selectedOrderDetails.orderStatus === 'Processing' && (
                 <button
                   onClick={() => {
