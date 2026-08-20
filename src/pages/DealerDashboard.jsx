@@ -5,15 +5,21 @@ import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
 import api from '../utils/api';
 import { useAlert } from '../context/AlertContext';
-import { Store, Plus, Edit, Trash2, Package, Check, Truck, User, DollarSign, Settings, ShoppingCart, X, Upload, ShieldAlert, Eye, EyeOff, TrendingUp, Clock } from 'lucide-react';
+import { Store, Plus, Edit, Trash2, Package, Check, Truck, User, DollarSign, Settings, ShoppingCart, X, Upload, ShieldAlert, Eye, EyeOff, TrendingUp, Clock, Percent } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { useInvalidateProductCache } from '../hooks/useProducts';
+import DealerOfferManager from '../components/DealerOfferManager';
 
 const DealerDashboard = () => {
   const { user, updateProfile } = useAuth();
   const { showConfirm } = useAlert();
   const invalidateProductCache = useInvalidateProductCache();
-  const [activeTab, setActiveTab] = useState('overview');
+
+  // Read initial tab from URL if present
+  const queryParams = new URLSearchParams(window.location.hash.split('?')[1]);
+  const initialTab = queryParams.get('tab') || 'overview';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState(null);
 
@@ -738,7 +744,7 @@ const DealerDashboard = () => {
   const handleCancelCustomerOrder = async (orderId) => {
     const confirm = await showConfirm('Are you sure you want to cancel this order?');
     if (confirm) {
-      const reason = prompt('Please enter the reason for cancellation (e.g. Out of Stock, Transport issues):');
+      const reason = await showPrompt('Please enter the reason for cancellation (e.g. Out of Stock, Transport issues):');
       if (reason === null) return;
       const finalReason = reason.trim() || 'Cancelled by Dealer';
       
@@ -1196,7 +1202,20 @@ Aquarium Care & Environment Requirements:
           </div>
 
 
-
+          <div
+            className={`${styles['sidebar-item']} ${activeTab === 'offers' ? styles['active'] : ''}`}
+            onClick={() => {
+              if (!isApproved) {
+                alert('Your store is pending approval. You cannot manage offers yet.');
+                return;
+              }
+              setActiveTab('offers');
+            }}
+            style={{ opacity: isApproved ? 1 : 0.5 }}
+          >
+            <Percent size={22} />
+            <span>Offer Management</span>
+          </div>
           <div
             className={`${styles['sidebar-item']} ${activeTab === 'payments' ? styles['active'] : ''}`}
             onClick={() => {
@@ -1431,7 +1450,11 @@ Aquarium Care & Environment Requirements:
         </div>
       )}
 
-          {activeTab === 'products' && (
+      {activeTab === 'offers' && (
+        <DealerOfferManager />
+      )}
+
+      {activeTab === 'products' && (
             <div>
               <div className={styles['dashboard-header']}>
                 <h1 className={styles['dashboard-title']}>Product Catalog</h1>
@@ -1512,7 +1535,7 @@ Aquarium Care & Environment Requirements:
                 <h1 className={styles['dashboard-title']}>Store Orders</h1>
                 <div className="glass-panel" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '12px' }}>
                   <ShoppingCart size={16} style={{ color: 'var(--success)' }} />
-                  <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--success)' }}>Total Orders: {orders.length}</span>
+                  <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--success)' }}>Total Orders: {orders.filter(o => o.paymentStatus !== 'failed').length}</span>
                 </div>
               </div>
 
@@ -1534,14 +1557,24 @@ Aquarium Care & Environment Requirements:
                 >
                   Shipped & Delivered ({orders.filter(o => ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus)).length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderSubTab('cancelled')}
+                  className={`btn ${orderSubTab === 'cancelled' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.6rem 1.5rem', margin: 0 }}
+                >
+                  Cancelled ({orders.filter(o => o.orderStatus === 'Cancelled' && o.paymentStatus !== 'failed').length})
+                </button>
               </div>
 
               {(() => {
                 const filtered = orders.filter(o => {
                   if (orderSubTab === 'incoming') {
                     return ['Processing', 'Placed', 'Pending'].includes(o.orderStatus) && o.paymentStatus !== 'failed';
-                  } else {
+                  } else if (orderSubTab === 'shipped') {
                     return ['Shipped', 'Courier Dispatched', 'In Transit', 'Out for Delivery', 'Delivered'].includes(o.orderStatus);
+                  } else {
+                    return o.orderStatus === 'Cancelled' && o.paymentStatus !== 'failed';
                   }
                 });
 
@@ -1581,7 +1614,7 @@ Aquarium Care & Environment Requirements:
                           </div>
                           <div>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>SHIPMENT STATE</span>
-                            <div style={{ fontWeight: '600', color: ord.orderStatus === 'Delivered' ? 'var(--success)' : 'var(--primary)' }}>
+                            <div style={{ fontWeight: '600', color: ord.orderStatus === 'Delivered' ? 'var(--success)' : ord.orderStatus === 'Cancelled' ? '#ef4444' : 'var(--primary)' }}>
                               {ord.orderStatus}
                             </div>
                           </div>

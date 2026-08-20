@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import styles from './Login.module.css';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, verifyAdminOtp } = useAuth();
   
+  const from = location.state?.from?.pathname || null;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [requireOtp, setRequireOtp] = useState(false);
@@ -17,6 +20,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+// ... skipping validation methods ...
   const validateEmail = (val) => {
     if (!val) return 'Email address is required';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,7 +58,7 @@ const Login = () => {
       setLoading(true);
       try {
         await verifyAdminOtp(email, password, otp);
-        navigate('/admin/dashboard');
+        navigate(from || '/admin/dashboard');
       } catch (err) {
         setError(err);
       } finally {
@@ -85,8 +89,10 @@ const Login = () => {
         return;
       }
 
-      // Redirect based on role
-      if (response.role === 'admin') {
+      // Redirect based on role or intended destination
+      if (from) {
+        navigate(from);
+      } else if (response.role === 'admin') {
         navigate('/admin/dashboard');
       } else if (response.role === 'dealer') {
         navigate('/dealer/dashboard');

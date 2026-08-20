@@ -52,6 +52,9 @@ const Checkout = () => {
   const [paymentRejectReason, setPaymentRejectReason] = useState('timeout'); // 'timeout' | 'admin'
   const [timerSeconds, setTimerSeconds] = useState(300);
   const [paymentStep, setPaymentStep] = useState('pay'); // 'pay' | 'submitting' | 'waiting' | 'success' | 'expired'
+  const [validationState, setValidationState] = useState(null); // null | 'validating' | 'success' | 'failed'
+  const [validationErrorDetails, setValidationErrorDetails] = useState(null);
+  const [isValidationBypassed, setIsValidationBypassed] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyActiveTab, setPolicyActiveTab] = useState('fishcare');
   
@@ -492,6 +495,11 @@ const Checkout = () => {
           setTimerSeconds(300);
           setPaymentStep('pay');
           setCustomerUpiId('');
+          setPaymentProofImage('');
+          setPaymentProofFileName('');
+          setValidationState(null);
+          setValidationErrorDetails(null);
+          setIsValidationBypassed(false);
           setShowUpiModal(true);
           
           // Immediately dispatch SMS alert to admin phone
@@ -546,6 +554,32 @@ const Checkout = () => {
       await api.put(`/orders/${activeOrderId}`, { paymentStatus: 'failed', orderStatus: 'Cancelled' });
     } catch (err) {
       console.error('Failed to cancel expired order:', err);
+    }
+  };
+
+  // Validate uploaded screenshot using backend OCR
+  const validateUploadedScreenshot = async (base64Image) => {
+    setValidationState('validating');
+    setValidationErrorDetails(null);
+    setIsValidationBypassed(false);
+    try {
+      const res = await api.post(`/orders/${activeOrderId}/validate-screenshot`, { paymentProofImage: base64Image });
+      if (res.data.success) {
+        setValidationState('success');
+      } else {
+        setValidationState('failed');
+        setValidationErrorDetails(res.data.errors);
+      }
+    } catch (err) {
+      console.error('Error validating screenshot:', err);
+      setValidationState('failed');
+      setValidationErrorDetails({
+        payee: true,
+        amount: true,
+        date: true,
+        time: true,
+        message: err.response?.data?.message || 'Verification system is currently unreachable.'
+      });
     }
   };
 
@@ -1142,6 +1176,7 @@ const Checkout = () => {
                           const reader = new FileReader();
                           reader.onloadend = () => {
                             setPaymentProofImage(reader.result);
+                            validateUploadedScreenshot(reader.result);
                           };
                           reader.readAsDataURL(file);
                         }
@@ -1161,8 +1196,57 @@ const Checkout = () => {
                     </div>
                   )}
 
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.5rem', height: '38px', fontSize: '0.9rem', fontWeight: 'bold', marginTop: '0.5rem' }}>
-                    Submit Payment Proof
+                  {/* OCR Validation Feedback */}
+                  {validationState === 'validating' && (
+                    <div style={{ padding: '0.6rem', background: 'rgba(2, 132, 199, 0.05)', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.8rem', border: '1px solid rgba(2, 132, 199, 0.2)', textAlign: 'center' }}>
+                      ⏳ Verifying screenshot details (Payee, Amount, Date, Time)...
+                    </div>
+                  )}
+
+                  {validationState === 'success' && (
+                    <div style={{ padding: '0.6rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--success)', marginBottom: '0.8rem', border: '1px solid rgba(16, 185, 129, 0.2)', textAlign: 'center' }}>
+                      ✓ Screenshot details verified successfully!
+                    </div>
+                  )}
+
+                  {validationState === 'failed' && (
+                    <div style={{ padding: '0.8rem', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '6px', fontSize: '0.78rem', color: 'var(--accent)', marginBottom: '0.8rem', border: '1px solid rgba(244, 63, 94, 0.2)', textAlign: 'left' }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Screenshot Verification Failed:</div>
+                      {validationErrorDetails?.message && <div style={{ marginBottom: '6px', fontSize: '0.72rem' }}>{validationErrorDetails.message}</div>}
+                      <ul style={{ paddingLeft: '1.2rem', margin: '0 0 8px 0' }}>
+                        {validationErrorDetails?.payee && <li>Payee name "TEN Aquarium" or UPI ID not found.</li>}
+                        {validationErrorDetails?.amount && <li>Transaction amount mismatch or not found.</li>}
+                        {validationErrorDetails?.date && <li>Transaction date mismatch or not found.</li>}
+                        {validationErrorDetails?.time && <li>Transaction timestamp (time) mismatch or not found.</li>}
+                      </ul>
+                      
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginTop: '8px', paddingTop: '6px', borderTop: '1px solid rgba(244, 63, 94, 0.15)', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isValidationBypassed} 
+                          onChange={(e) => setIsValidationBypassed(e.target.checked)} 
+                        />
+                        Bypass verification and submit anyway
+                      </label>
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    disabled={!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.5rem', 
+                      height: '38px', 
+                      fontSize: '0.9rem', 
+                      fontWeight: 'bold', 
+                      marginTop: '0.5rem',
+                      opacity: (!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)) ? 0.6 : 1,
+                      cursor: (!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {validationState === 'validating' ? 'Verifying Details...' : 'Submit Payment Proof'}
                   </button>
                 </form>
               </div>

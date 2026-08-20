@@ -145,6 +145,7 @@ select option {
 .main-content {
   flex-grow: 1;
   padding-bottom: 4rem;
+  padding-top: 75px;
 }
 
 /* Alerts */

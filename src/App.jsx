@@ -131,7 +131,7 @@ function App() {
                 <Route
                   path="/refund-bank-details/:id"
                   element={
-                    <ProtectedRoute allowedRoles={['customer']}>
+                    <ProtectedRoute allowedRoles={['customer', 'dealer']}>
                       <RefundBankDetails />
                     </ProtectedRoute>
                   }

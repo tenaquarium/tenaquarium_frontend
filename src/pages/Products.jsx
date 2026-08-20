@@ -65,6 +65,7 @@ const Products = () => {
     priceMax: searchParams.get('priceMax') || '',
     rating: searchParams.get('rating') || '',
     sort: searchParams.get('sort') || 'newest',
+    offerId: searchParams.get('offerId') || '',
   };
 
   const { data: queryProducts, isLoading } = useProductsQuery(filters);

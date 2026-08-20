@@ -10,6 +10,7 @@ import { Fish, ShieldAlert, Award, Zap, Compass } from 'lucide-react';
 import plantedTankImg from '../assets/planted_tank.png';
 import marineTankImg from '../assets/marine_tank.png';
 import officeTankImg from '../assets/office_tank.png';
+import OfferSlider from '../components/OfferSlider';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -206,6 +207,9 @@ const Home = () => {
         </div>
       </header>
 
+      {/* Offer Slider */}
+      <OfferSlider />
+
       {/* Categories Section */}
       <section style={{ padding: '2rem 5%' }}>
         <h2 className={styles['section-title']}>Shop By Category</h2>
@@ -272,6 +276,7 @@ const Home = () => {
           </div>
         )}
       </section>
+
 
       {/* Custom Tank Setups Section */}
       <section style={{ padding: '3rem 5%', background: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '2rem' }}>

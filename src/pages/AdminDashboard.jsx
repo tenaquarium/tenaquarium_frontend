@@ -6,11 +6,17 @@ import { useAlert } from '../context/AlertContext';
 import { Shield, Users, Store, Package, DollarSign, FileText, Check, X, Edit, Trash2, ShieldAlert, CheckCircle, MessageSquare, Truck, Plus, Menu, Clock, TrendingUp, Settings } from 'lucide-react';
 
 import { useInvalidateProductCache } from '../hooks/useProducts';
+import AdminOfferManager from '../components/AdminOfferManager';
 
 const AdminDashboard = () => {
   const { showConfirm, showPrompt } = useAlert();
   const invalidateProductCache = useInvalidateProductCache();
-  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Read initial tab from URL if present
+  const queryParams = new URLSearchParams(window.location.hash.split('?')[1]);
+  const initialTab = queryParams.get('tab') || 'overview';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState(null);
 
@@ -405,7 +411,7 @@ const AdminDashboard = () => {
   const handleCancelOrder = async (orderId) => {
     const confirm = await showConfirm('Are you sure you want to cancel this order?');
     if (confirm) {
-      const reason = prompt('Please enter the reason for cancellation:');
+      const reason = await showPrompt('Please enter the reason for cancellation:');
       if (reason === null) return;
       const finalReason = reason.trim() || 'Cancelled by Admin';
       try {
@@ -649,6 +655,11 @@ const AdminDashboard = () => {
             <span>Orders</span>
           </div>
 
+          <div className={`${styles['sidebar-item']} ${activeTab === 'offers' ? styles['active'] : ''}`} onClick={() => setActiveTab('offers')}>
+            <TrendingUp size={22} />
+            <span>Offers</span>
+          </div>
+
           <div className={`${styles['sidebar-item']} ${activeTab === 'reviews' ? styles['active'] : ''}`} onClick={() => setActiveTab('reviews')}>
             <MessageSquare size={22} />
             <span>Reviews Moderation</span>
@@ -748,6 +759,10 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'offers' && (
+            <AdminOfferManager />
           )}
 
           {activeTab === 'customers' && (
@@ -1134,6 +1149,13 @@ const AdminDashboard = () => {
                   >
                     Refunded
                   </button>
+                  <button
+                    onClick={() => setOrdersFilter('Failed')}
+                    className={`btn ${ordersFilter === 'Failed' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '0.4rem 1.2rem', fontSize: '0.85rem', borderRadius: '8px' }}
+                  >
+                    Failed
+                  </button>
                 </div>
 
                 {ordersFilter === 'Refunded' ? (
@@ -1272,10 +1294,13 @@ const AdminDashboard = () => {
                         {(() => {
                           const filtered = orders.filter((ord) => {
                             if (ordersFilter === 'Processing') {
-                              return ord.orderStatus !== 'Delivered' && ord.orderStatus !== 'Cancelled';
+                              return ord.orderStatus !== 'Delivered' && ord.orderStatus !== 'Cancelled' && ord.paymentStatus !== 'failed';
                             }
                             if (ordersFilter === 'Delivered') {
                               return ord.orderStatus === 'Delivered';
+                            }
+                            if (ordersFilter === 'Failed') {
+                              return ord.paymentStatus === 'failed';
                             }
                             return true; // 'All'
                           });
