@@ -136,19 +136,17 @@ const OfferSlider = () => {
                 backgroundRepeat: 'no-repeat'
               }}
             >
-              {/* Dark overlay so text remains readable over any image, but keep it lighter if it's a custom banner so we don't dim the dealer's banner too much */}
-              <div style={{ position: 'absolute', inset: 0, background: slide.hasCustomBanner ? 'rgba(0, 0, 0, 0.15)' : 'rgba(2, 21, 38, 0.65)' }} />
+              {/* Dark overlay so text remains readable over any image */}
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(2, 21, 38, 0.65)' }} />
 
-              <div className={styles['slide-content']} style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: slide.hasCustomBanner ? 'flex-end' : 'center', alignItems: slide.hasCustomBanner ? 'center' : 'flex-start', paddingBottom: slide.hasCustomBanner ? '2.5rem' : '0' }}>
+              <div className={styles['slide-content']} style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', paddingBottom: '0' }}>
                 
-                {!slide.hasCustomBanner && (
-                  <div className={styles['text-group']} style={{ maxWidth: '600px' }}>
-                    <span className={styles['tag']}>{slide.tag}</span>
-                    {slide.discount && <h3 className={styles['title']}>{slide.discount}</h3>}
-                    <div className={styles['discount-text']}>{slide.title}</div>
-                    <p className={styles['description']}>{slide.description}</p>
-                  </div>
-                )}
+                <div className={styles['text-group']} style={{ maxWidth: '600px' }}>
+                  <span className={styles['tag']}>{slide.tag}</span>
+                  {slide.discount && <h3 className={styles['title']}>{slide.discount}</h3>}
+                  <div className={styles['discount-text']}>{slide.title}</div>
+                  <p className={styles['description']}>{slide.description}</p>
+                </div>
 
                 <button 
                   className="btn btn-primary" 
