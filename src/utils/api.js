@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Check if we are running on localhost, otherwise force the live Vercel API
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_URL = isLocalhost 
+  ? 'http://localhost:5000/api' 
+  : 'https://ten-aquarium-official.vercel.app/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://ten-aquarium-official.vercel.app/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
