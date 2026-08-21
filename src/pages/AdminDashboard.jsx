@@ -1563,7 +1563,7 @@ const AdminDashboard = () => {
                     className="btn btn-primary"
                   >
                     <Plus size={16} />
-                    {courierTab === 'rates' ? 'Add Rate Card' : 'Add Zone Mapping'}
+                    Add Rate Card
                   </button>
                 )}
               </div>
@@ -1582,18 +1582,7 @@ const AdminDashboard = () => {
                 >
                   Rate Cards ({rates.length})
                 </button>
-                <button
-                  onClick={() => setCourierTab('zones')}
-                  className="btn"
-                  style={{
-                    padding: '0.5rem 1.2rem',
-                    background: courierTab === 'zones' ? 'var(--primary)' : 'transparent',
-                    color: courierTab === 'zones' ? 'white' : 'var(--text-secondary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                >
-                  Zone Mappings ({zones.length})
-                </button>
+                
                 <button
                   onClick={() => setCourierTab('freeShipping')}
                   className="btn"
@@ -1662,46 +1651,6 @@ const AdminDashboard = () => {
                                   <Edit size={14} />
                                 </button>
                                 <button onClick={() => handleDeleteRate(rate._id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'var(--accent)' }} title="Delete">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {courierTab === 'zones' && (
-                <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <div className={styles['table-container']}>
-                    <table className={styles['custom-table']}>
-                      <thead>
-                        <tr>
-                          <th>PIN Range</th>
-                          <th>Zone Assigned</th>
-                          <th>State Name</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {zones.map((z) => (
-                          <tr key={z._id}>
-                            <td style={{ fontWeight: '600', fontFamily: 'monospace' }}>
-                              {z.pincodeStart} - {z.pincodeEnd}
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{z.zone}</span>
-                            </td>
-                            <td>{z.stateName}</td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button onClick={() => openEditZone(z)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'var(--primary)' }} title="Edit">
-                                  <Edit size={14} />
-                                </button>
-                                <button onClick={() => handleDeleteZone(z._id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'var(--accent)' }} title="Delete">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
