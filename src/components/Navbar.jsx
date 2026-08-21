@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { ShoppingCart, Heart, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
-import NotificationDropdown from './NotificationDropdown';
+
 import api from '../utils/api';
 
 const Navbar = () => {
@@ -115,8 +115,6 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-
-            <NotificationDropdown />
 
             <Link
               to={
