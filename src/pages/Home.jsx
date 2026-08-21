@@ -152,10 +152,13 @@ const Home = () => {
     .map(d => d.customOfferText ? `${d.businessName}: ${d.customOfferText}` : d.discountPercentage > 0 ? `${d.businessName}: Flat ${d.discountPercentage}% OFF on all products!` : '')
     .filter(Boolean);
 
+  const isOfferActive = new Date() < new Date('2026-09-01T00:00:00+05:30');
+
   return (
     <div className="main-content">
       {/* Responsive Campaign Video Banner */}
-      <div 
+      {isOfferActive && (
+        <div 
         style={{ 
           width: '100%', 
           padding: '2rem 5% 0',
@@ -188,8 +191,9 @@ const Home = () => {
               objectFit: 'contain'
             }}
           />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Hero Banner */}
       <header className={styles['home-hero']}>
