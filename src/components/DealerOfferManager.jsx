@@ -216,7 +216,17 @@ const DealerOfferManager = () => {
                     <td style={{ fontWeight: 'bold' }}>{offer.offerName}</td>
                     <td>
                       <div>{offer.offerScope.toUpperCase()}</div>
-                      <div style={{ color: 'var(--secondary)' }}>
+                      {offer.offerScope === 'category' && offer.targetCategories && offer.targetCategories.length > 0 && (
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+                          {offer.targetCategories.join(', ')}
+                        </div>
+                      )}
+                      {offer.offerScope === 'product' && offer.targetProducts && offer.targetProducts.length > 0 && (
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+                          {offer.targetProducts.length} Product(s)
+                        </div>
+                      )}
+                      <div style={{ color: 'var(--secondary)', marginTop: '4px', fontWeight: 'bold' }}>
                         {offer.benefitType === 'buy_x_get_y' ? `Buy ${offer.buyX} Get ${offer.getY}` : offer.benefitType === 'percentage' ? offer.benefitValue + '% OFF' : '₹' + offer.benefitValue + ' OFF'}
                       </div>
                     </td>
