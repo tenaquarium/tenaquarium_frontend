@@ -103,7 +103,7 @@ export const useLatestProductsQuery = () => {
   return useQuery({
     queryKey: ['products', 'latest'],
     queryFn: async () => {
-      const res = await api.get('/products?sort=newest');
+      const res = await api.get('/products?sort=newest&limit=12');
       return res.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -115,7 +115,7 @@ export const usePopularProductsQuery = () => {
   return useQuery({
     queryKey: ['products', 'popular'],
     queryFn: async () => {
-      const res = await api.get('/products?sort=popular');
+      const res = await api.get('/products?sort=popular&limit=12');
       return res.data;
     },
     staleTime: 5 * 60 * 1000,

@@ -32,17 +32,17 @@ import ResetPassword from './pages/ResetPassword';
 import DealerProfile from './pages/DealerProfile';
 
 // Customer Protected Pages
-import CustomerDashboard from './pages/CustomerDashboard';
+const CustomerDashboard = React.lazy(() => import('./pages/CustomerDashboard'));
 import Cart from './pages/Cart';
 import Wishlist from './pages/Wishlist';
-import Checkout from './pages/Checkout';
+const Checkout = React.lazy(() => import('./pages/Checkout'));
 import RefundBankDetails from './pages/RefundBankDetails';
 
 // Dealer Protected Pages
-import DealerDashboard from './pages/DealerDashboard';
+const DealerDashboard = React.lazy(() => import('./pages/DealerDashboard'));
 
 // Admin Protected Pages
-import AdminDashboard from './pages/AdminDashboard';
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 
 // Public Tracking Page
 import TrackShipment from './pages/TrackShipment';
@@ -73,6 +73,7 @@ function App() {
             <Navbar />
             
             <main className="main-content">
+              <React.Suspense fallback={<></>}>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<Home />} />
@@ -160,6 +161,7 @@ function App() {
                 {/* Fallback Route */}
                 <Route path="*" element={<Home />} />
               </Routes>
+              </React.Suspense>
             </main>
 
             <Footer />

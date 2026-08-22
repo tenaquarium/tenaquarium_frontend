@@ -104,7 +104,7 @@ const Home = () => {
   useEffect(() => {
     const fetchLatestProducts = async () => {
       try {
-        const res = await api.get('/products?sort=newest');
+        const res = await api.get('/products?sort=newest&limit=12');
         setFeaturedProducts(res.data);
       } catch (error) {
         console.error('Error fetching latest products', error);
@@ -113,7 +113,7 @@ const Home = () => {
 
     const fetchPopularProducts = async () => {
       try {
-        const res = await api.get('/products?sort=popular');
+        const res = await api.get('/products?sort=popular&limit=12');
         setPopularProducts(res.data);
       } catch (error) {
         console.error('Error fetching popular products', error);
@@ -245,7 +245,7 @@ const Home = () => {
             {featuredProducts.slice(0, 10).map((product) => (
               <div key={product._id} className={styles['carousel-item']}>
                 <Link to={`/products/${product._id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-                  <img 
+                  <img loading="lazy" decoding="async" 
                     src={product.images && product.images[0] ? product.images[0] : 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500'} 
                     alt={product.productName} 
                   />
