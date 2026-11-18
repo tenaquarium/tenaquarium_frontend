@@ -258,9 +258,10 @@ select option {
   }
   
   .app-container:has([class*="products-page-container"]) .main-content {
+    padding-top: 80px;
     padding-bottom: 0 !important;
     overflow: hidden;
-    height: calc(100vh - 90px);
+    height: 100vh;
   }
 }
 

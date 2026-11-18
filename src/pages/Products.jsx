@@ -125,8 +125,7 @@ const Products = () => {
   };
 
   return (
-    <div className="main-content">
-      <div className={styles['products-page-container']}>
+    <div className={styles['products-page-container']}>
 
         {/* Sidebar Filters */}
         <aside className={`glass-panel ${styles['filters-sidebar']} ${showMobileFilters ? styles['filters-open'] : ''}`}>
@@ -368,7 +367,6 @@ const Products = () => {
           })()}
         </section>
       </div>
-    </div>
   );
 };
 
