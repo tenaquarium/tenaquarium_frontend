@@ -618,7 +618,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="main-content">
+    <div>
       <div className={styles['dashboard-container']}>
         {/* Sidebar */}
         <aside className={styles['sidebar-menu']}>

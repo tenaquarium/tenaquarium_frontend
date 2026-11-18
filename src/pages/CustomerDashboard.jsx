@@ -509,7 +509,7 @@ const CustomerDashboard = () => {
   const totalSpent = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
-    <div className="main-content" style={{ position: 'relative', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', overflow: 'hidden' }}>
       {/* Background Glow Blobs for premium aurora effect */}
       <div className={styles['glow-blob-1']}></div>
       <div className={styles['glow-blob-2']}></div>

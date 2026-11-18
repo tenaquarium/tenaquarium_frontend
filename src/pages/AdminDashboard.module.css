@@ -8,7 +8,7 @@
 .sidebar-menu {
   background: rgba(255, 255, 255, 0.9); /* Pure white glass background */
   border-right: 1px solid var(--border-color);
-  padding: 2rem 1rem;
+  padding: 1.2rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -41,7 +41,7 @@
 }
 
 .dashboard-main {
-  padding: 2rem 5%;
+  padding: 1.2rem 5% 2rem;
 }
 
 .dashboard-header {
