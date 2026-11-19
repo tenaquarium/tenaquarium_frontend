@@ -17,7 +17,6 @@ const queryClient = new QueryClient({
 // Global Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import PhoneSimulator from './components/PhoneSimulator';
 import AdminPaymentAlertModal from './components/AdminPaymentAlertModal';
 
 // Public Pages
@@ -175,7 +174,6 @@ function App() {
             </main>
 
             <Footer />
-            <PhoneSimulator />
             <AdminPaymentAlertModal />
           </div>
           </Router>

@@ -10,17 +10,20 @@ const AdminPaymentAlertModal = () => {
   const [actionResult, setActionResult] = useState(null);
 
   // Web Audio Synthesizer: Loud 2-tone alert chime
-  const playAlertChime = () => {
+  const playAlertChime = async () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
       
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'triangle';
       osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.35, ctx.currentTime);
       gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
@@ -33,7 +36,7 @@ const AdminPaymentAlertModal = () => {
           const gain2 = ctx.createGain();
           osc2.type = 'triangle';
           osc2.frequency.setValueAtTime(880, ctx.currentTime); // A5
-          gain2.gain.setValueAtTime(0.35, ctx.currentTime);
+          gain2.gain.setValueAtTime(0.4, ctx.currentTime);
           gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
           osc2.connect(gain2);
           gain2.connect(ctx.destination);
@@ -48,8 +51,10 @@ const AdminPaymentAlertModal = () => {
 
   // Request browser notification permission once for Admin
   useEffect(() => {
-    if (user?.role === 'admin' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+    if (user?.role === 'admin' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
     }
   }, [user]);
 
@@ -80,15 +85,23 @@ const AdminPaymentAlertModal = () => {
                 navigator.vibrate([250, 100, 250, 100, 400]);
               }
 
-              // System notification if app/tab is backgrounded
+              // Real-time OS notification for Laptop & Phone
               if ('Notification' in window && Notification.permission === 'granted') {
                 try {
-                  new Notification(`⚡ Payment Alert: ₹${Number(data.amount).toLocaleString()}`, {
-                    body: `Customer claims payment for Order #${data.shortId}. Tap to verify.`,
-                    icon: '/favicon.png',
-                    tag: `payment-${data.orderId}`
+                  const notif = new Notification(`⚡ TEN Aquarium: ₹${Number(data.amount).toLocaleString()} Payment Received!`, {
+                    body: `Customer ${data.customerName || 'User'} claims payment for Order #${data.shortId}. Click to verify.`,
+                    icon: '/logo.png',
+                    badge: '/favicon.png',
+                    tag: `payment-${data.orderId}`,
+                    requireInteraction: true,
+                    vibrate: [250, 100, 250, 100, 400]
                   });
-                } catch { /* ignore */ }
+                  notif.onclick = () => {
+                    window.focus();
+                  };
+                } catch (e) {
+                  console.warn('Native notification trigger error:', e);
+                }
               }
             }
           } catch { /* ignore non-JSON or ping */ }

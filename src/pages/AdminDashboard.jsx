@@ -3,7 +3,7 @@ import styles from './AdminDashboard.module.css';
 import api from '../utils/api';
 import Loader from '../components/Loader';
 import { useAlert } from '../context/AlertContext';
-import { Shield, Users, Store, Package, DollarSign, FileText, Check, X, Edit, Trash2, ShieldAlert, CheckCircle, MessageSquare, Truck, Plus, Menu, Clock, TrendingUp, Settings } from 'lucide-react';
+import { Shield, Users, Store, Package, DollarSign, FileText, Check, X, Edit, Trash2, ShieldAlert, CheckCircle, MessageSquare, Truck, Plus, Menu, Clock, TrendingUp, Settings, BellRing } from 'lucide-react';
 
 import { useInvalidateProductCache } from '../hooks/useProducts';
 import AdminOfferManager from '../components/AdminOfferManager';
@@ -685,8 +685,22 @@ const AdminDashboard = () => {
         <main className={styles['dashboard-main']}>
           {activeTab === 'overview' && stats && (
             <div>
-              <div className={styles['dashboard-header']}>
-                <h1 className={styles['dashboard-title']}>System Overview</h1>
+              <div className={styles['dashboard-header']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <h1 className={styles['dashboard-title']} style={{ margin: 0 }}>System Overview</h1>
+                {'Notification' in window && Notification.permission !== 'granted' && (
+                  <button
+                    onClick={() => Notification.requestPermission()}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.4)', borderRadius: '20px', padding: '0.4rem 1rem' }}
+                  >
+                    <BellRing size={16} /> Enable Real-Time Sound & Push Alerts
+                  </button>
+                )}
+                {'Notification' in window && Notification.permission === 'granted' && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#059669', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 12px', borderRadius: '20px', fontWeight: '700' }}>
+                    <BellRing size={14} /> Real-Time Alerts Active
+                  </div>
+                )}
               </div>
 
               {/* Stats grid */}

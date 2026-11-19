@@ -500,9 +500,6 @@ const Checkout = () => {
         if (paymentMethod === 'COD') {
           setOrderSuccess(order);
           window.dispatchEvent(new Event('cart-updated'));
-          window.dispatchEvent(new CustomEvent('sms-notification', {
-            detail: { message: `TENAQUARIUM: Order placed successfully! Order ID: #${order._id.slice(-6)}. Total: ₹${order.totalAmount.toLocaleString()}. Status: Processing.` }
-          }));
         } else if (paymentMethod === 'UPI-QR') {
           setActiveOrderId(order._id);
           setActiveOrderAmount(order.totalAmount);
@@ -515,15 +512,6 @@ const Checkout = () => {
           setValidationErrorDetails(null);
           setIsValidationBypassed(false);
           setShowUpiModal(true);
-          
-          // Immediately dispatch SMS alert to admin phone
-          window.dispatchEvent(new CustomEvent('sms-notification', {
-            detail: {
-              message: `TENAQUARIUM: UPI QR Generated. Order ID: #${order._id.slice(-6)} | Amount: ₹${order.totalAmount.toLocaleString()} | Status: Pending verification.`,
-              orderId: order._id,
-              type: 'payment-approval'
-            }
-          }));
         }
       }
     } catch (error) {
@@ -603,13 +591,6 @@ const Checkout = () => {
     setPaymentStep('waiting');
     try {
       await api.post(`/orders/${activeOrderId}/claim-payment`);
-      window.dispatchEvent(new CustomEvent('sms-notification', {
-        detail: {
-          message: `TENAQUARIUM: Customer claims payment completed for Order #${activeOrderId.slice(-6)} (₹${activeOrderAmount.toLocaleString()}). Awaiting Admin verification within 20s.`,
-          orderId: activeOrderId,
-          type: 'payment-approval'
-        }
-      }));
     } catch (err) {
       console.warn('Error sending claim payment alert:', err);
     }
@@ -643,9 +624,6 @@ const Checkout = () => {
           setPaymentStep('success');
           // Clear cart navbar indicator
           window.dispatchEvent(new Event('cart-updated'));
-          window.dispatchEvent(new CustomEvent('sms-notification', {
-            detail: { message: `TENAQUARIUM: UPI payment verified by Admin! Order ID: #${res.data._id.slice(-6)}. Total: ₹${res.data.totalAmount.toLocaleString()}. Status: paid.` }
-          }));
         } else if ((res.data.paymentStatus === 'failed' || res.data.paymentStatus === 'FAILED') && isMounted) {
           setPaymentStep('expired');
           setPaymentRejectReason('admin');
@@ -751,10 +729,10 @@ const Checkout = () => {
   const totalPayable = subtotal + packingCharge + (deliveryCharge || 0);
 
   return (
-    <div className="main-content" style={{ padding: '2vh 5% 4rem' }}>
+    <div className="main-content" style={{ padding: '1.5rem clamp(10px, 3vw, 2rem) 4rem' }}>
       <form onSubmit={handleCheckoutSubmit} className={styles['cart-layout']}>
         {/* Left Panel: Shipping Details */}
-        <div className="glass-panel" style={{ padding: '2.5rem' }}>
+        <div className={`glass-panel ${styles['shipping-panel']}`}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>
             <MapPin size={20} />
             SHIPPING ADDRESS
@@ -772,7 +750,7 @@ const Checkout = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className={styles['form-row-2col']}>
             <div className="form-group">
               <label className="form-label">City/District</label>
               <input
@@ -800,7 +778,7 @@ const Checkout = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className={styles['form-row-2col']}>
             <div className="form-group">
               <label className="form-label">ZIP / Postal Code (6 Digits)</label>
               <input
@@ -854,7 +832,7 @@ const Checkout = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className={styles['form-row-2col']}>
             <div className="form-group">
               <label className="form-label">Contact Phone</label>
               <input
