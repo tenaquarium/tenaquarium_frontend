@@ -32,14 +32,22 @@ const DownloadApp = () => {
     setDeferredPrompt(null);
   };
 
-  const handleApkDownload = () => {
-    // Direct link to the hosted APK in public/downloads or direct download prompt
-    const link = document.createElement('a');
-    link.href = '/downloads/tenaquarium.apk';
-    link.download = 'tenaquarium.apk';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleApkDownload = async () => {
+    try {
+      const res = await fetch('/downloads/tenaquarium.apk', { method: 'HEAD' });
+      if (res.ok) {
+        const link = document.createElement('a');
+        link.href = '/downloads/tenaquarium.apk';
+        link.download = 'tenaquarium.apk';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert('The standalone APK file is currently being generated. In the meantime, please tap the white button "1-Click Install to Phone (Instant)" to install the official app directly to your home screen right now!');
+      }
+    } catch {
+      alert('To install the app on Android right now, please tap the white button "1-Click Install to Phone (Instant)" or tap the 3 dots (⋮) in Chrome and select "Install app".');
+    }
   };
 
   return (
