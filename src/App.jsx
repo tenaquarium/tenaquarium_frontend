@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AlertProvider } from './context/AlertContext';
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Capacitor } from '@capacitor/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AdminPaymentAlertModal from './components/AdminPaymentAlertModal';
+import NotificationToast from './components/NotificationToast';
 
 // Public Pages
 import Home from './pages/Home';
@@ -75,8 +77,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AlertProvider>
-          <Router>
-          <div className="app-container">
+          <NotificationProvider>
+            <Router>
+            <div className="app-container">
             <Navbar />
             
             <main className="main-content">
@@ -175,8 +178,10 @@ function App() {
 
             <Footer />
             <AdminPaymentAlertModal />
+            <NotificationToast />
           </div>
           </Router>
+          </NotificationProvider>
         </AlertProvider>
       </AuthProvider>
     </QueryClientProvider>

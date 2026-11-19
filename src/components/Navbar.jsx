@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { ShoppingCart, Heart, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 
 import api from '../utils/api';
 
@@ -117,6 +118,7 @@ const Navbar = () => {
       <div className={styles['nav-actions']}>
         {user ? (
           <>
+            <NotificationCenter />
 
             {(user.role === 'customer' || user.role === 'dealer') && (
               <>
@@ -199,6 +201,7 @@ const Navbar = () => {
             {user ? (
               <>
                 <div className={styles['wishlist-cart-row']}>
+                  <NotificationCenter />
                   {(user.role === 'customer' || user.role === 'dealer') && (
                     <>
                       <Link to="/wishlist" className={styles['wishlist-btn-3d']} title="Wishlist">

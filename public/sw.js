@@ -1,5 +1,5 @@
-// TEN Aquarium Service Worker
-const CACHE_NAME = 'ten-aquarium-v1';
+// TEN Aquarium Service Worker - Push & Background Notification Handler
+const CACHE_NAME = 'ten-aquarium-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -10,7 +10,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'TEN Aquarium Alert', body: 'New order update received.' };
+  let data = {
+    title: 'TEN Aquarium Alert',
+    body: 'New update received.',
+    data: {}
+  };
+
   if (event.data) {
     try {
       data = event.data.json();
@@ -19,34 +24,46 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const isUrgent = data.data?.type === 'PAYMENT';
+
   const options = {
-    body: data.body,
-    icon: '/favicon.png',
+    body: data.body || 'You have a new update.',
+    icon: '/logo.png',
     badge: '/favicon.png',
-    vibrate: [200, 100, 200, 100, 200],
+    vibrate: isUrgent ? [300, 100, 300, 100, 500] : [200, 100, 200],
+    tag: data.data?.notificationId ? `notif-${data.data.notificationId}` : `ten-${Date.now()}`,
+    renotify: true,
+    requireInteraction: isUrgent,
     data: data.data || {},
     actions: [
-      { action: 'open', title: 'Open' }
+      { action: 'view', title: 'View Details' },
+      { action: 'close', title: 'Dismiss' }
     ]
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'TEN Aquarium', options)
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+
+  if (event.action === 'close') return;
+
+  const targetUrl = event.notification.data?.url || '/';
+  const fullTargetUrl = new URL(targetUrl.startsWith('#') ? `/${targetUrl}` : targetUrl, self.location.origin).href;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
+        if ('focus' in client) {
+          client.navigate(fullTargetUrl);
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(fullTargetUrl);
       }
     })
   );
