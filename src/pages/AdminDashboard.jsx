@@ -696,11 +696,88 @@ const AdminDashboard = () => {
                     <BellRing size={16} /> Enable Real-Time Sound & Push Alerts
                   </button>
                 )}
-                {'Notification' in window && Notification.permission === 'granted' && (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    onClick={async () => {
+                      // Play sound
+                      try {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) {
+                          const ctx = new AudioCtx();
+                          const osc = ctx.createOscillator();
+                          const gain = ctx.createGain();
+                          osc.frequency.setValueAtTime(880, ctx.currentTime);
+                          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                          osc.connect(gain);
+                          gain.connect(ctx.destination);
+                          osc.start();
+                          osc.stop(ctx.currentTime + 0.3);
+                        }
+                      } catch { /* ignore */ }
+
+                      // Vibrate
+                      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+                      // Trigger notification (native or web)
+                      try {
+                        const { LocalNotifications } = await import('@capacitor/local-notifications');
+                        const { Capacitor } = await import('@capacitor/core');
+                        if (Capacitor.isNativePlatform()) {
+                          try {
+                            await LocalNotifications.createChannel({
+                              id: 'tenaquarium_payment_alerts_v3',
+                              name: 'Customer Payment Alerts',
+                              description: 'Urgent alerts when customers complete UPI payments',
+                              importance: 5,
+                              visibility: 1,
+                              vibration: true,
+                              lights: true,
+                              lightColor: '#0284c7'
+                            });
+                          } catch { /* channel exists */ }
+
+                          await LocalNotifications.schedule({
+                            notifications: [{
+                              id: Math.floor(Date.now() % 100000) + 999,
+                              title: '⚡ TEN Aquarium: Test Payment Alert!',
+                              body: 'System notification sound & vibration are working properly on your phone.',
+                              channelId: 'tenaquarium_payment_alerts_v3',
+                              smallIcon: 'ic_launcher',
+                              largeIcon: 'ic_launcher',
+                              vibrate: true,
+                              autoCancel: true,
+                              schedule: { at: new Date(Date.now() + 100) }
+                            }]
+                          });
+                        } else if ('Notification' in window) {
+                          if (Notification.permission === 'granted') {
+                            new Notification('⚡ TEN Aquarium: Test Payment Alert!', {
+                              body: 'System notification sound & vibration are working properly on your laptop.',
+                              icon: '/logo.png'
+                            });
+                          } else {
+                            Notification.requestPermission();
+                          }
+                        }
+                      } catch (e) {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                          new Notification('⚡ TEN Aquarium: Test Payment Alert!', {
+                            body: 'Alert working properly.',
+                            icon: '/logo.png'
+                          });
+                        }
+                      }
+                    }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '4px 12px', borderRadius: '20px', color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.4)' }}
+                  >
+                    <BellRing size={14} /> Test Alert
+                  </button>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#059669', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 12px', borderRadius: '20px', fontWeight: '700' }}>
-                    <BellRing size={14} /> Real-Time Alerts Active
+                    Real-Time Active
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Stats grid */}

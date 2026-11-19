@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { BellRing, CheckCircle, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const AdminPaymentAlertModal = () => {
   const { user } = useAuth();
@@ -49,10 +51,36 @@ const AdminPaymentAlertModal = () => {
     }
   };
 
-  // Request browser notification permission once for Admin
+  // Request browser & mobile notification permission once for Admin
   useEffect(() => {
-    if (user?.role === 'admin' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
+    if (user?.role === 'admin') {
+      if (Capacitor.isNativePlatform()) {
+        const initNative = async () => {
+          try {
+            await LocalNotifications.createChannel({
+              id: 'tenaquarium_payment_alerts_v3',
+              name: 'Customer Payment Alerts',
+              description: 'Urgent alerts when customers complete UPI payments',
+              importance: 5, // MAX heads-up banner with sound & vibration
+              visibility: 1,
+              vibration: true,
+              lights: true,
+              lightColor: '#0284c7'
+            });
+            const perm = await LocalNotifications.checkPermissions();
+            if (perm.display !== 'granted') {
+              await LocalNotifications.requestPermissions();
+            }
+          } catch (e) {
+            console.warn('Native channel setup err:', e);
+          }
+        };
+        initNative();
+
+        LocalNotifications.addListener('localNotificationActionPerformed', () => {
+          window.location.hash = '#/admin/dashboard?tab=orders';
+        });
+      } else if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
       }
     }
@@ -73,10 +101,39 @@ const AdminPaymentAlertModal = () => {
         navigator.vibrate([250, 100, 250, 100, 400]);
       }
 
-      // Real-time OS notification for Laptop & Phone
       const notifTitle = `⚡ TEN Aquarium: ₹${Number(data.amount).toLocaleString()} Payment Received!`;
+      const notifBody = `Customer ${data.customerName || 'User'} claims payment for Order #${data.shortId}. Tap to verify.`;
+
+      // 1. NATIVE ANDROID SYSTEM NOTIFICATION (For Real Android APK App)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          LocalNotifications.schedule({
+            notifications: [
+              {
+                id: Math.floor(Date.now() % 100000) + 1,
+                title: notifTitle,
+                body: notifBody,
+                channelId: 'tenaquarium_payment_alerts_v3',
+                smallIcon: 'ic_launcher',
+                largeIcon: 'ic_launcher',
+                vibrate: true,
+                autoCancel: true,
+                schedule: { at: new Date(Date.now() + 100) },
+                extra: {
+                  orderId: data.orderId,
+                  url: '/admin/dashboard?tab=orders'
+                }
+              }
+            ]
+          }).catch((err) => console.warn('Native LocalNotifications schedule err:', err));
+        } catch (nativeErr) {
+          console.warn('Native LocalNotifications err:', nativeErr);
+        }
+      }
+
+      // 2. WEB SYSTEM NOTIFICATION (For Laptop / Desktop Browser)
       const notifOptions = {
-        body: `Customer ${data.customerName || 'User'} claims payment for Order #${data.shortId}. Tap to verify.`,
+        body: notifBody,
         icon: '/logo.png',
         badge: '/favicon.png',
         tag: `payment-${data.orderId}`,
