@@ -54,6 +54,11 @@ import DownloadApp from './pages/DownloadApp';
 
 function App() {
   useEffect(() => {
+    // Request Notification permission so Android runtime enables notifications
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
     if (Capacitor.isNativePlatform()) {
       import('@capacitor/app').then(({ App }) => {
         App.addListener('backButton', ({ canGoBack }) => {
