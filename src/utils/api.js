@@ -1,8 +1,13 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 
-// Check if we are running on localhost, otherwise force the live Vercel API
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_URL = isLocalhost 
+// Check if running inside mobile app (Capacitor Android/iOS)
+const isNative = typeof Capacitor !== 'undefined' && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform();
+
+// Check if we are running on desktop localhost browser
+const isLocalhost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isNative;
+
+export const API_URL = isLocalhost 
   ? 'http://localhost:5000/api' 
   : 'https://ten-aquarium-official.vercel.app/api';
 
