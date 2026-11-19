@@ -58,13 +58,93 @@ const AdminPaymentAlertModal = () => {
     }
   }, [user]);
 
-  // Connect to Admin SSE Stream
+  // Trigger alert sound, vibration, OS notification, and modal
+  const triggerPaymentAlert = (data) => {
+    setActiveAlert((prev) => {
+      // Don't re-trigger if already showing this exact order alert
+      if (prev && prev.orderId === data.orderId) return prev;
+
+      setActionResult(null);
+      setProcessing(false);
+      playAlertChime();
+
+      // Mobile phone vibration
+      if (navigator.vibrate) {
+        navigator.vibrate([250, 100, 250, 100, 400]);
+      }
+
+      // Real-time OS notification for Laptop & Phone
+      const notifTitle = `⚡ TEN Aquarium: ₹${Number(data.amount).toLocaleString()} Payment Received!`;
+      const notifOptions = {
+        body: `Customer ${data.customerName || 'User'} claims payment for Order #${data.shortId}. Tap to verify.`,
+        icon: '/logo.png',
+        badge: '/favicon.png',
+        tag: `payment-${data.orderId}`,
+        requireInteraction: true,
+        vibrate: [250, 100, 250, 100, 400],
+        data: { url: '/admin/dashboard?tab=orders' }
+      };
+
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification(notifTitle, notifOptions).catch(() => {
+                  const fallbackNotif = new Notification(notifTitle, notifOptions);
+                  fallbackNotif.onclick = () => window.focus();
+                });
+              }).catch(() => {
+                const fallbackNotif = new Notification(notifTitle, notifOptions);
+                fallbackNotif.onclick = () => window.focus();
+              });
+            } else {
+              const notif = new Notification(notifTitle, notifOptions);
+              notif.onclick = () => window.focus();
+            }
+          } catch (e) {
+            console.warn('Native notification trigger error:', e);
+          }
+        } else if (Notification.permission === 'default') {
+          Notification.requestPermission().then((perm) => {
+            if (perm === 'granted') {
+              try {
+                const notif = new Notification(notifTitle, notifOptions);
+                notif.onclick = () => window.focus();
+              } catch { /* ignore */ }
+            }
+          }).catch(() => {});
+        }
+      }
+
+      return data;
+    });
+  };
+
+  // Connect to Admin SSE Stream & Real-time Database Polling
   useEffect(() => {
     if (user?.role !== 'admin') return;
 
+    let isMounted = true;
     let eventSource = null;
     let reconnectTimeout = null;
 
+    // 1. Fast polling every 2 seconds (guaranteed to work across serverless Vercel, mobile APK, laptop)
+    const pollPendingAlerts = async () => {
+      try {
+        const res = await api.get('/payments/admin-pending-alerts');
+        if (isMounted && res.data && res.data.alerts && res.data.alerts.length > 0) {
+          triggerPaymentAlert(res.data.alerts[0]);
+        }
+      } catch (err) {
+        // silent fallback
+      }
+    };
+
+    pollPendingAlerts();
+    const pollInterval = setInterval(pollPendingAlerts, 2000);
+
+    // 2. Also keep SSE for sub-second instant push
     const connectSSE = () => {
       try {
         const streamUrl = `${api.defaults.baseURL || '/api'}/payments/admin-stream`;
@@ -75,41 +155,14 @@ const AdminPaymentAlertModal = () => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'PAYMENT_CLAIMED') {
-              setActiveAlert(data);
-              setActionResult(null);
-              setProcessing(false);
-              playAlertChime();
-
-              // Mobile phone vibration (if supported)
-              if (navigator.vibrate) {
-                navigator.vibrate([250, 100, 250, 100, 400]);
-              }
-
-              // Real-time OS notification for Laptop & Phone
-              if ('Notification' in window && Notification.permission === 'granted') {
-                try {
-                  const notif = new Notification(`⚡ TEN Aquarium: ₹${Number(data.amount).toLocaleString()} Payment Received!`, {
-                    body: `Customer ${data.customerName || 'User'} claims payment for Order #${data.shortId}. Click to verify.`,
-                    icon: '/logo.png',
-                    badge: '/favicon.png',
-                    tag: `payment-${data.orderId}`,
-                    requireInteraction: true,
-                    vibrate: [250, 100, 250, 100, 400]
-                  });
-                  notif.onclick = () => {
-                    window.focus();
-                  };
-                } catch (e) {
-                  console.warn('Native notification trigger error:', e);
-                }
-              }
+              triggerPaymentAlert(data);
             }
           } catch { /* ignore non-JSON or ping */ }
         };
 
         eventSource.onerror = () => {
           if (eventSource) eventSource.close();
-          reconnectTimeout = setTimeout(connectSSE, 4000);
+          reconnectTimeout = setTimeout(connectSSE, 5000);
         };
       } catch (err) {
         console.warn('Admin SSE connection error:', err);
@@ -119,6 +172,8 @@ const AdminPaymentAlertModal = () => {
     connectSSE();
 
     return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
       if (eventSource) eventSource.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
