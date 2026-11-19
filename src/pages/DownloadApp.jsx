@@ -32,24 +32,6 @@ const DownloadApp = () => {
     setDeferredPrompt(null);
   };
 
-  const handleApkDownload = async () => {
-    try {
-      const res = await fetch('/downloads/tenaquarium.apk', { method: 'HEAD' });
-      if (res.ok) {
-        const link = document.createElement('a');
-        link.href = '/downloads/tenaquarium.apk';
-        link.download = 'tenaquarium.apk';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert('The standalone APK file is currently being generated. In the meantime, please tap the white button "1-Click Install to Phone (Instant)" to install the official app directly to your home screen right now!');
-      }
-    } catch {
-      alert('To install the app on Android right now, please tap the white button "1-Click Install to Phone (Instant)" or tap the 3 dots (⋮) in Chrome and select "Install app".');
-    }
-  };
-
   return (
     <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Top Banner */}
@@ -110,8 +92,9 @@ const DownloadApp = () => {
             {installed ? '✓ App Installed!' : '1-Click Install to Phone (Instant)'}
           </button>
 
-          <button
-            onClick={handleApkDownload}
+          <a
+            href="/downloads/tenaquarium.apk"
+            download="tenaquarium.apk"
             style={{
               background: 'rgba(255, 255, 255, 0.15)',
               color: '#ffffff',
@@ -124,12 +107,13 @@ const DownloadApp = () => {
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '10px'
+              gap: '10px',
+              textDecoration: 'none'
             }}
           >
             <Download size={20} />
             Download APK File
-          </button>
+          </a>
         </div>
       </div>
 
