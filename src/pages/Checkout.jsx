@@ -41,6 +41,20 @@ const Checkout = () => {
     }
   }, [user, phone]);
 
+  // Preview helper for instant visual inspection of payment steps
+  useEffect(() => {
+    const query = window.location.hash.includes('?') 
+      ? window.location.hash.split('?')[1] 
+      : window.location.search;
+    const params = new URLSearchParams(query);
+    if (params.get('preview') === 'upi') {
+      setActiveOrderId('ord_live_test_169');
+      setActiveOrderAmount(169);
+      setShowUpiModal(true);
+      setPaymentStep(params.get('step') || 'pay');
+    }
+  }, []);
+
   // UPI QR Payment Modal States
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
@@ -583,34 +597,41 @@ const Checkout = () => {
     }
   };
 
-  // Submit UPI Payment Proof
-  const handleSubmitProof = async (e) => {
-    e.preventDefault();
-    if (!paymentProofImage) {
-      alert('Please upload a screenshot of your payment proof.');
-      return;
-    }
-
-    setPaymentStep('submitting');
+  // Submit UPI Payment Proof or Claim Payment
+  const handleClaimPayment = async () => {
+    setTimerSeconds(20); // 20-second verification countdown
+    setPaymentStep('waiting');
     try {
-      await api.put(`/orders/${activeOrderId}/payment-proof`, { paymentProofImage, customerUpiId });
-      setPaymentStep('waiting');
-
-      // Dispatch urgent SMS alert to the admin's phone simulator
+      await api.post(`/orders/${activeOrderId}/claim-payment`);
       window.dispatchEvent(new CustomEvent('sms-notification', {
         detail: {
-          message: `TENAQUARIUM: URGENT payment verification for Order #${activeOrderId.slice(-6)}. Verify screenshot for ₹${activeOrderAmount.toLocaleString()}.`,
+          message: `TENAQUARIUM: Customer claims payment completed for Order #${activeOrderId.slice(-6)} (₹${activeOrderAmount.toLocaleString()}). Awaiting Admin verification within 20s.`,
           orderId: activeOrderId,
           type: 'payment-approval'
         }
       }));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to submit payment proof.');
-      setPaymentStep('pay');
+      console.warn('Error sending claim payment alert:', err);
     }
   };
 
-  // Poll order status for Admin approval
+  const handleSubmitProof = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setTimerSeconds(20);
+    setPaymentStep('submitting');
+    try {
+      if (paymentProofImage) {
+        await api.put(`/orders/${activeOrderId}/payment-proof`, { paymentProofImage, customerUpiId });
+      }
+      await api.post(`/orders/${activeOrderId}/claim-payment`);
+      setPaymentStep('waiting');
+    } catch (err) {
+      console.warn('Fallback claim payment on proof submit:', err);
+      setPaymentStep('waiting');
+    }
+  };
+
+  // Poll order status for Admin approval (every 1 second for 20-second window)
   useEffect(() => {
     if (paymentStep !== 'waiting') return;
 
@@ -618,30 +639,25 @@ const Checkout = () => {
     const checkStatus = async () => {
       try {
         const res = await api.get(`/orders/${activeOrderId}`);
-        if (res.data.paymentStatus === 'paid' && isMounted) {
+        if ((res.data.paymentStatus === 'paid' || res.data.paymentStatus === 'PAID') && isMounted) {
           setPaymentStep('success');
           // Clear cart navbar indicator
           window.dispatchEvent(new Event('cart-updated'));
-          // Simulated SMS notification
           window.dispatchEvent(new CustomEvent('sms-notification', {
             detail: { message: `TENAQUARIUM: UPI payment verified by Admin! Order ID: #${res.data._id.slice(-6)}. Total: ₹${res.data.totalAmount.toLocaleString()}. Status: paid.` }
           }));
-        } else if (res.data.paymentStatus === 'failed' && isMounted) {
+        } else if ((res.data.paymentStatus === 'failed' || res.data.paymentStatus === 'FAILED') && isMounted) {
           setPaymentStep('expired');
-          if (timerSeconds > 0) {
-            setPaymentRejectReason('admin');
-            alert('Your payment proof was rejected by the admin.');
-          } else {
-            setPaymentRejectReason('timeout');
-            alert('Payment verification window expired.');
-          }
+          setPaymentRejectReason('admin');
         }
       } catch (err) {
         console.error('Polling order status error:', err);
       }
     };
 
-    const interval = setInterval(checkStatus, 3000);
+    // Initial check immediately, then poll every 1 second
+    checkStatus();
+    const interval = setInterval(checkStatus, 1000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -1096,181 +1112,101 @@ const Checkout = () => {
               </div>
             )}
 
-            {/* Step 1: Pay (QR Code display) */}
+            {/* Step 1: Pay (QR Code display & Clear English Instructions) */}
             {paymentStep === 'pay' && (
               <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '0 0 0.6rem' }}>
-                  Scan to pay exactly <strong style={{ color: 'var(--secondary)', fontSize: '0.95rem' }}>₹{activeOrderAmount.toLocaleString()}</strong>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
+                  Scan to pay exactly <strong style={{ color: 'var(--secondary)', fontSize: '1rem' }}>₹{activeOrderAmount.toLocaleString()}</strong>
                 </p>
 
                 {/* QR Code Container */}
-                <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '8px', display: 'inline-block', border: '1px solid var(--border-color)', marginBottom: '0.6rem' }}>
+                <div style={{ background: '#ffffff', padding: '0.6rem', borderRadius: '12px', display: 'inline-block', border: '1px solid var(--border-color)', marginBottom: '0.6rem', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`upi://pay?pa=tenaquarium457@oksbi&pn=TEN%20Aquarium&am=${activeOrderAmount}&cu=INR&tn=Order_${activeOrderId.slice(-6)}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`upi://pay?pa=tenaquarium457@oksbi&pn=TEN%20Aquarium&am=${activeOrderAmount}&cu=INR&tn=Order_${activeOrderId.slice(-6)}`)}`}
                     alt="UPI QR Code"
-                    style={{ width: '140px', height: '140px', display: 'block' }}
+                    style={{ width: '150px', height: '150px', display: 'block' }}
                   />
                 </div>
 
-                <div style={{ background: 'rgba(14, 165, 233, 0.04)', padding: '0.6rem', borderRadius: '6px', marginBottom: '0.8rem', textAlign: 'left', fontSize: '0.75rem', border: '1px solid var(--border-color)' }}>
+                <div style={{ background: 'rgba(14, 165, 233, 0.05)', padding: '0.6rem 0.8rem', borderRadius: '8px', marginBottom: '0.8rem', textAlign: 'left', fontSize: '0.75rem', border: '1px solid rgba(2, 132, 199, 0.15)' }}>
                   <div>Payee Name: <strong>TEN Aquarium / Elavarasi</strong></div>
+                  <div style={{ marginTop: '2px' }}>UPI ID: <strong>tenaquarium457@oksbi</strong></div>
                 </div>
 
-                {/* Payment Proof Form */}
-                <form onSubmit={handleSubmitProof} style={{ textAlign: 'left' }}>
-                  <div className="form-group" style={{ marginBottom: '0.8rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'block', fontWeight: '600' }}>
-                      Upload Payment Screenshot
-                    </label>
-                    <label htmlFor="screenshot-upload" style={{ display: 'block', cursor: 'pointer' }}>
-                      <div 
-                        style={{
-                          border: paymentProofImage ? '1.5px solid rgba(16, 185, 129, 0.45)' : '1.5px dashed rgba(2, 132, 199, 0.4)',
-                          background: paymentProofImage ? 'rgba(16, 185, 129, 0.03)' : 'rgba(2, 132, 199, 0.03)',
-                          color: paymentProofImage ? 'var(--success)' : 'var(--primary)',
-                          borderRadius: '10px',
-                          padding: '0.8rem',
-                          textAlign: 'center',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                          transition: 'all 0.25s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.5rem',
-                          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = paymentProofImage ? 'var(--success)' : 'var(--primary)';
-                          e.currentTarget.style.background = paymentProofImage ? 'rgba(16, 185, 129, 0.06)' : 'rgba(2, 132, 199, 0.06)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = paymentProofImage ? 'rgba(16, 185, 129, 0.45)' : 'rgba(2, 132, 199, 0.4)';
-                          e.currentTarget.style.background = paymentProofImage ? 'rgba(16, 185, 129, 0.03)' : 'rgba(2, 132, 199, 0.03)';
-                        }}
-                      >
-                        {paymentProofImage ? (
-                          <>
-                            <span style={{ fontSize: '1rem' }}>✓</span>
-                            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '240px' }}>
-                              {paymentProofFileName || 'Screenshot Uploaded'} (Change)
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span style={{ fontSize: '1.05rem' }}>📁</span>
-                            <span>Choose Screenshot Image</span>
-                          </>
-                        )}
-                      </div>
-                    </label>
-                    <input
-                      id="screenshot-upload"
-                      type="file"
-                      required
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setPaymentProofFileName(file.name);
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setPaymentProofImage(reader.result);
-                            validateUploadedScreenshot(reader.result);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                  </div>
+                {/* Step Instructions in English */}
+                <div style={{ background: '#fffbeb', border: '1px solid #fef08a', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', textAlign: 'left', fontSize: '0.74rem', color: '#854d0e', lineHeight: '1.4' }}>
+                  <div style={{ fontWeight: '800', marginBottom: '3px', color: '#713f12' }}>PAYMENT INSTRUCTIONS:</div>
+                  <div><strong>1.</strong> Scan this QR code in Google Pay, PhonePe, Paytm, or BHIM and pay <strong>₹{activeOrderAmount.toLocaleString()}</strong>.</div>
+                  <div style={{ marginTop: '3px' }}><strong>2.</strong> ONLY after completing the payment, click the button below to notify the merchant.</div>
+                </div>
 
-                  {paymentProofImage && (
-                    <div style={{ marginBottom: '0.8rem', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Screenshot Preview:</span>
-                      <img 
-                        src={paymentProofImage} 
-                        style={{ maxWidth: '100%', maxHeight: '120px', borderRadius: '6px', border: '1px solid var(--border-color)', objectFit: 'contain' }} 
-                        alt="Preview" 
-                      />
-                    </div>
-                  )}
+                {/* Primary Action: I Have Completed Payment */}
+                <button
+                  type="button"
+                  onClick={handleClaimPayment}
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '0.7rem',
+                    fontSize: '0.92rem',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    marginBottom: '0.8rem',
+                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
+                  }}
+                >
+                  <span>✓</span>
+                  <span>I Have Completed Payment</span>
+                </button>
 
-                  {/* OCR Validation Feedback */}
-                  {validationState === 'validating' && (
-                    <div style={{ padding: '0.6rem', background: 'rgba(2, 132, 199, 0.05)', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.8rem', border: '1px solid rgba(2, 132, 199, 0.2)', textAlign: 'center' }}>
-                      ⏳ Verifying screenshot details (Payee, Amount, Date, Time)...
-                    </div>
-                  )}
-
-                  {validationState === 'success' && (
-                    <div style={{ padding: '0.6rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--success)', marginBottom: '0.8rem', border: '1px solid rgba(16, 185, 129, 0.2)', textAlign: 'center' }}>
-                      ✓ Screenshot details verified successfully!
-                    </div>
-                  )}
-
-                  {validationState === 'failed' && (
-                    <div style={{ padding: '0.8rem', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '6px', fontSize: '0.78rem', color: 'var(--accent)', marginBottom: '0.8rem', border: '1px solid rgba(244, 63, 94, 0.2)', textAlign: 'left' }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Screenshot Verification Failed:</div>
-                      {validationErrorDetails?.message && <div style={{ marginBottom: '6px', fontSize: '0.72rem' }}>{validationErrorDetails.message}</div>}
-                      <ul style={{ paddingLeft: '1.2rem', margin: '0 0 8px 0' }}>
-                        {validationErrorDetails?.payee && <li>Payee name "TEN Aquarium" or UPI ID not found.</li>}
-                        {validationErrorDetails?.amount && <li>Transaction amount mismatch or not found.</li>}
-                        {validationErrorDetails?.date && <li>Transaction date mismatch or not found.</li>}
-                        {validationErrorDetails?.time && <li>Transaction timestamp (time) mismatch or not found.</li>}
-                      </ul>
-                      
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginTop: '8px', paddingTop: '6px', borderTop: '1px solid rgba(244, 63, 94, 0.15)', fontSize: '0.75rem', fontWeight: '600' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isValidationBypassed} 
-                          onChange={(e) => setIsValidationBypassed(e.target.checked)} 
-                        />
-                        Bypass verification and submit anyway
-                      </label>
-                    </div>
-                  )}
-
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary" 
-                    disabled={!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)}
-                    style={{ 
-                      width: '100%', 
-                      padding: '0.5rem', 
-                      height: '38px', 
-                      fontSize: '0.9rem', 
-                      fontWeight: 'bold', 
-                      marginTop: '0.5rem',
-                      opacity: (!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)) ? 0.6 : 1,
-                      cursor: (!paymentProofImage || validationState === 'validating' || (validationState === 'failed' && !isValidationBypassed)) ? 'not-allowed' : 'pointer'
+                {/* Optional Screenshot Upload Section */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem', textAlign: 'center' }}>
+                  <label htmlFor="screenshot-upload" style={{ cursor: 'pointer', fontSize: '0.74rem', color: 'var(--primary)', textDecoration: 'underline', fontWeight: '600' }}>
+                    {paymentProofImage ? '✓ Screenshot Attached (Click to change)' : '+ Attach payment screenshot (optional)'}
+                  </label>
+                  <input
+                    id="screenshot-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setPaymentProofFileName(file.name);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setPaymentProofImage(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
                     }}
-                  >
-                    {validationState === 'validating' ? 'Verifying Details...' : 'Submit Payment Proof'}
-                  </button>
-                </form>
+                    style={{ display: 'none' }}
+                  />
+                </div>
               </div>
             )}
 
             {/* Step 2: Submitting Proof */}
             {paymentStep === 'submitting' && (
-              <div style={{ padding: '1rem 0' }}>
-                <Loader message="Submitting payment proof details..." />
+              <div style={{ padding: '1.5rem 0' }}>
+                <Loader message="Notifying merchant..." />
               </div>
             )}
 
-            {/* Step 3: Waiting for Admin Approval */}
+            {/* Step 3: Waiting for Merchant Confirmation */}
             {paymentStep === 'waiting' && (
-              <div style={{ padding: '1rem 0' }}>
-                <div className={styles['loader-spinner']} style={{ width: '32px', height: '32px', border: '3px solid rgba(2, 132, 199, 0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.4rem', color: 'var(--primary)' }}>
-                  Verifying Payment
+              <div style={{ padding: '1.2rem 0' }}>
+                <div className={styles['loader-spinner']} style={{ width: '38px', height: '38px', border: '3px solid rgba(2, 132, 199, 0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1.2rem' }}></div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '0.5rem', color: 'var(--primary)' }}>
+                  Waiting for Merchant Confirmation...
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1.2rem', lineHeight: '1.4' }}>
-                  Payment processing please wait...
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '1.2rem', lineHeight: '1.5', padding: '0 0.5rem' }}>
+                  We have sent an instant verification alert to the merchant. Please wait while your payment is confirmed (Duration: 20 seconds).
                 </p>
-                <div style={{ background: 'rgba(14, 165, 233, 0.04)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid var(--border-color)', display: 'inline-block' }}>
-                  Time Remaining: <strong>{Math.floor(timerSeconds / 60)}:{timerSeconds % 60 < 10 ? '0' : ''}{timerSeconds % 60}</strong>
+                <div style={{ background: 'rgba(14, 165, 233, 0.08)', padding: '0.5rem 1rem', borderRadius: '10px', fontSize: '0.88rem', border: '1.5px solid rgba(2, 132, 199, 0.25)', display: 'inline-block', color: 'var(--primary)', fontWeight: '800' }}>
+                  ⏱️ {timerSeconds}s Remaining
                 </div>
               </div>
             )}
@@ -1278,42 +1214,65 @@ const Checkout = () => {
             {/* Step 4: Success Animation */}
             {paymentStep === 'success' && (
               <div style={{ padding: '1.5rem 0' }}>
-                <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success)', margin: '0 auto 1rem' }}>
-                  <CheckCircle size={32} />
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success)', margin: '0 auto 1rem' }}>
+                  <CheckCircle size={34} />
                 </div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '0.4rem', color: 'var(--success)' }}>
                   Payment Approved!
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0 1rem', margin: 0 }}>
-                  Thank you! Your payment has been verified by <strong>TEN Aquarium</strong>. Your order is being processed.
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0 0.5rem', margin: 0, lineHeight: '1.4' }}>
+                  Thank you! Your payment has been verified by <strong>TEN Aquarium</strong>. Navigating to order confirmation...
                 </p>
               </div>
             )}
 
-            {/* Step 5: Expired / Cancelled */}
+            {/* Step 5: Expired / Payment Not Received */}
             {paymentStep === 'expired' && (
               <div style={{ padding: '1rem 0' }}>
-                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error)', margin: '0 auto 1rem' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error)', margin: '0 auto 0.8rem' }}>
                   <span style={{ fontSize: '1.8rem', fontWeight: '800' }}>!</span>
                 </div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.4rem', color: 'var(--error)' }}>
-                  {paymentRejectReason === 'admin' ? 'Order Failed (Payment Rejected)' : 'Order Failed (Payment Timeout)'}
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '0.4rem', color: 'var(--error)' }}>
+                  Payment Not Received
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1rem', padding: '0 0.5rem' }}>
-                  {paymentRejectReason === 'admin' 
-                    ? 'The admin has verified and rejected your submitted payment proof. The order has been cancelled.' 
-                    : 'The 2-minute payment window has closed. Your order was not verified and has been cancelled.'}
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.8rem', padding: '0 0.5rem', lineHeight: '1.4' }}>
+                  Your order has been cancelled because payment was not received in our bank account.
                 </p>
-                <button
-                  onClick={() => {
-                    setShowUpiModal(false);
-                    setPaymentStep('pay');
-                  }}
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '0.6rem', height: '38px', fontSize: '0.9rem' }}
-                >
-                  Return to Payment
-                </button>
+
+                {/* Complaint & Reassurance Box */}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.7rem', textAlign: 'left', fontSize: '0.74rem', color: '#475569', marginBottom: '1rem', lineHeight: '1.45' }}>
+                  <strong style={{ color: '#0f172a', display: 'block', marginBottom: '3px' }}>Was your amount debited?</strong>
+                  Please do not worry! If money was deducted from your account, please register a complaint on our Contact page or WhatsApp us with your transaction details. Our team will verify and activate your order or issue a full refund immediately.
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <a
+                    href="#/contact"
+                    className="btn btn-secondary"
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.82rem', textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    Contact Us / Register Complaint
+                  </a>
+                  <a
+                    href={`https://wa.me/919677572150?text=${encodeURIComponent(`Hi TEN Aquarium, my order #${activeOrderId.slice(-6)} was cancelled, but amount ₹${activeOrderAmount} was debited from my bank. Please verify.`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.82rem', textAlign: 'center', textDecoration: 'none', background: '#25D366', borderColor: '#25D366' }}
+                  >
+                    WhatsApp Support (+91 9677572150)
+                  </a>
+                  <button
+                    onClick={() => {
+                      setShowUpiModal(false);
+                      setPaymentStep('pay');
+                    }}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.82rem' }}
+                  >
+                    Try Again
+                  </button>
+                </div>
               </div>
             )}
 

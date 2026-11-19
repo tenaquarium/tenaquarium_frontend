@@ -4,20 +4,32 @@ import api from '../utils/api';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
-  // Load user profile on mount if token exists
+  // Load user profile on mount if token exists without dropping session on network hiccups
   useEffect(() => {
     const loadUser = async () => {
       if (token) {
         try {
           const res = await api.get('/auth/profile');
           setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
         } catch (error) {
-          console.error('Failed to load user profile', error);
-          logout();
+          if (error.response?.status === 401) {
+            console.warn('Session expired (401), logging out');
+            logout();
+          } else {
+            console.warn('Network or server unreachable; keeping cached user session');
+          }
         }
       }
       setLoading(false);
@@ -35,6 +47,7 @@ export const AuthProvider = ({ children }) => {
       }
       const { token: userToken, ...userData } = res.data;
       localStorage.setItem('token', userToken);
+      localStorage.setItem('user', JSON.stringify(userData));
       setToken(userToken);
       setUser(userData);
       localStorage.removeItem('wishlist');
@@ -54,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/verify-admin-otp', { email, password, otp, deviceInfo });
       const { token: userToken, ...userData } = res.data;
       localStorage.setItem('token', userToken);
+      localStorage.setItem('user', JSON.stringify(userData));
       setToken(userToken);
       setUser(userData);
       localStorage.removeItem('wishlist');
@@ -73,6 +87,7 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/register', { name, email, password, phone });
       const { token: userToken, ...userData } = res.data;
       localStorage.setItem('token', userToken);
+      localStorage.setItem('user', JSON.stringify(userData));
       setToken(userToken);
       setUser(userData);
       localStorage.removeItem('wishlist');
@@ -93,6 +108,7 @@ export const AuthProvider = ({ children }) => {
       const { token: userToken, ...userData } = res.data;
       if (userToken) {
         localStorage.setItem('token', userToken);
+        localStorage.setItem('user', JSON.stringify(userData));
         setToken(userToken);
         setUser(userData);
       }
@@ -114,8 +130,8 @@ export const AuthProvider = ({ children }) => {
       const { token: userToken, ...userData } = res.data;
       if (userToken) {
         localStorage.setItem('token', userToken);
-        setToken(userToken);
       }
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return userData;
     } catch (error) {
@@ -128,6 +144,7 @@ export const AuthProvider = ({ children }) => {
   // Logout handler
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('wishlist');
     setToken(null);
     setUser(null);

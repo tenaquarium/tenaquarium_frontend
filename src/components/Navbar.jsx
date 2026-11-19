@@ -97,7 +97,21 @@ const Navbar = () => {
             </Link>
           </li>
         )}
-
+        <li>
+          <Link
+            to="/download"
+            className={`${styles['nav-link']} ${isActive('/download') ? styles['active'] : ''}`}
+            style={{
+              color: '#0284c7',
+              fontWeight: '700',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            📲 App
+          </Link>
+        </li>
       </ul>
 
       <div className={styles['nav-actions']}>
@@ -177,6 +191,9 @@ const Navbar = () => {
               Contact Us
             </Link>
           )}
+          <Link to="/download" className={`${styles['nav-link']} ${isActive('/download') ? styles['active'] : ''}`} style={{ color: '#0284c7', fontWeight: 'bold' }}>
+            📲 Download App
+          </Link>
 
           <div className={styles['mobile-actions']}>
             {user ? (

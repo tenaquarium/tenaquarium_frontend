@@ -17,6 +17,8 @@ const queryClient = new QueryClient({
 // Global Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import PhoneSimulator from './components/PhoneSimulator';
+import AdminPaymentAlertModal from './components/AdminPaymentAlertModal';
 
 // Public Pages
 import Home from './pages/Home';
@@ -48,6 +50,7 @@ const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 import TrackShipment from './pages/TrackShipment';
 import CustomSetupsExplorer from './pages/CustomSetupsExplorer';
 import Chats from './pages/Chats';
+import DownloadApp from './pages/DownloadApp';
 
 function App() {
   useEffect(() => {
@@ -89,6 +92,8 @@ function App() {
                 <Route path="/dealer/profile/:id" element={<DealerProfile />} />
                 <Route path="/track/:id" element={<TrackShipment />} />
                 <Route path="/custom-setups" element={<CustomSetupsExplorer />} />
+                <Route path="/download" element={<DownloadApp />} />
+                <Route path="/download-app" element={<DownloadApp />} />
 
                 {/* Customer Routes */}
                 <Route
@@ -165,6 +170,8 @@ function App() {
             </main>
 
             <Footer />
+            <PhoneSimulator />
+            <AdminPaymentAlertModal />
           </div>
           </Router>
         </AlertProvider>

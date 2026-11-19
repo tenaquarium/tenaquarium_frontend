@@ -64,10 +64,8 @@ const PhoneSimulator = () => {
 
   const handlePhoneApprove = async (orderId, msgIndex) => {
     try {
-      await api.put(`/orders/${orderId}`, { paymentStatus: 'paid', orderStatus: 'Processing' });
-      // Update message to show approved
-      setMessages(prev => prev.map((m, idx) => idx === msgIndex ? { ...m, text: m.text + " (APPROVED)", type: null } : m));
-      alert('Order payment approved successfully!');
+      await api.get(`/orders/approve-sms/${orderId}`);
+      setMessages(prev => prev.map((m, idx) => idx === msgIndex ? { ...m, text: m.text + " (✓ APPROVED)", type: null } : m));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to approve order payment');
     }
@@ -75,10 +73,8 @@ const PhoneSimulator = () => {
 
   const handlePhoneReject = async (orderId, msgIndex) => {
     try {
-      await api.put(`/orders/${orderId}`, { paymentStatus: 'failed', orderStatus: 'Cancelled' });
-      // Update message to show rejected
-      setMessages(prev => prev.map((m, idx) => idx === msgIndex ? { ...m, text: m.text + " (REJECTED/CANCELLED)", type: null } : m));
-      alert('Order payment rejected and order cancelled.');
+      await api.get(`/orders/reject-sms/${orderId}`);
+      setMessages(prev => prev.map((m, idx) => idx === msgIndex ? { ...m, text: m.text + " (✗ REJECTED)", type: null } : m));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reject order payment');
     }
