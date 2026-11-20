@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import api, { API_URL } from '../utils/api';
 import { useAuth } from './AuthContext';
 
@@ -30,6 +32,48 @@ export const NotificationProvider = ({ children }) => {
 
   const socketRef = useRef(null);
   const toastTimerRef = useRef(null);
+  const knownNotificationIdsRef = useRef(new Set());
+  const isInitialLoadRef = useRef(true);
+
+  // Initialize Android Native Notification Channel & Permissions
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.createChannel({
+        id: 'ten_aquarium_alerts',
+        name: 'TEN Aquarium Alerts',
+        description: 'Instant alerts for orders, payments, offers, and delivery updates',
+        importance: 5,
+        visibility: 1,
+        vibration: true,
+      }).catch((err) => console.warn('Failed to create notification channel:', err));
+
+      LocalNotifications.checkPermissions()
+        .then((perm) => {
+          if (perm.display !== 'granted') {
+            LocalNotifications.requestPermissions().then((reqRes) => {
+              setPushPermission(reqRes.display === 'granted' ? 'granted' : 'denied');
+            });
+          } else {
+            setPushPermission('granted');
+          }
+        })
+        .catch(() => {});
+
+      const listenerPromise = LocalNotifications.addListener(
+        'localNotificationActionPerformed',
+        (action) => {
+          const url = action?.notification?.extra?.url;
+          if (url) {
+            window.location.hash = url.startsWith('#') ? url : `#${url}`;
+          }
+        }
+      );
+
+      return () => {
+        listenerPromise.then((handle) => handle.remove?.()).catch(() => {});
+      };
+    }
+  }, []);
 
   // Subtle clean notification chime (Web Audio)
   const playChime = useCallback((isUrgent = false) => {
@@ -46,10 +90,10 @@ export const NotificationProvider = ({ children }) => {
       const gain = ctx.createGain();
 
       osc.type = isUrgent ? 'sawtooth' : 'sine';
-      osc.frequency.setValueAtTime(isUrgent ? 587.33 : 523.25, now); // D5 or C5
-      osc.frequency.exponentialRampToValueAtTime(isUrgent ? 880 : 659.25, now + 0.15); // A5 or E5
+      osc.frequency.setValueAtTime(isUrgent ? 587.33 : 523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(isUrgent ? 880 : 659.25, now + 0.15);
 
-      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.setValueAtTime(0.25, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + (isUrgent ? 0.35 : 0.25));
 
       osc.connect(gain);
@@ -61,6 +105,122 @@ export const NotificationProvider = ({ children }) => {
       // Audio not permitted or suspended
     }
   }, []);
+
+  // Display Toast Banner inside the App
+  const showToast = useCallback((notif) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setActiveToast(notif);
+    toastTimerRef.current = setTimeout(() => {
+      setActiveToast(null);
+    }, 7000);
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setActiveToast(null);
+  }, []);
+
+  // Trigger Phone Native Notification / Desktop Browser Notification
+  const triggerNativeNotification = useCallback((notif) => {
+    const title = notif.title || 'TEN Aquarium';
+    const message = notif.message || '';
+
+    // 1. Android Native App (Capacitor APK) -> Native Phone Status Bar Notification
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const notifId = Math.floor(Math.random() * 899999) + 100000;
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              id: notifId,
+              title: title,
+              body: message,
+              channelId: 'ten_aquarium_alerts',
+              schedule: { at: new Date(Date.now() + 50) },
+              extra: notif.data || {},
+            },
+          ],
+        }).catch((err) => console.warn('Native LocalNotifications schedule error:', err));
+      } catch (err) {
+        console.warn('Native LocalNotifications execution error:', err);
+      }
+      return;
+    }
+
+    // 2. Web Browser (Desktop / Mobile Chrome / Edge)
+    if (typeof window === 'undefined') return;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const options = {
+        body: message,
+        icon: '/logo.png',
+        badge: '/favicon.png',
+        tag: notif._id ? `notif-${notif._id}` : `toast-${Date.now()}`,
+        renotify: true,
+        vibrate: [200, 100, 200],
+        data: notif.data || {},
+      };
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready
+          .then((reg) => reg.showNotification(title, options))
+          .catch(() => {
+            try {
+              new Notification(title, options);
+            } catch {}
+          });
+      } else {
+        try {
+          const n = new Notification(title, options);
+          n.onclick = () => {
+            window.focus();
+            if (notif.data?.url) {
+              window.location.hash = notif.data.url.startsWith('#')
+                ? notif.data.url
+                : `#${notif.data.url}`;
+            }
+          };
+        } catch {}
+      }
+    }
+  }, []);
+
+  // Unified Handler when any new notification arrives
+  const handleIncomingNotification = useCallback((notif) => {
+    if (!notif) return;
+
+    // Check duplicate
+    if (notif._id && knownNotificationIdsRef.current.has(notif._id)) {
+      return;
+    }
+    if (notif._id) {
+      knownNotificationIdsRef.current.add(notif._id);
+    }
+
+    // Add to state
+    setNotifications((prev) => {
+      if (notif._id && prev.some((n) => n._id === notif._id)) return prev;
+      return [notif, ...prev];
+    });
+
+    setUnreadCount((prev) => prev + 1);
+
+    const isUrgent = notif.type === 'PAYMENT';
+
+    // 1. Play sound
+    playChime(isUrgent);
+
+    // 2. Vibrate phone
+    if (navigator.vibrate) {
+      navigator.vibrate(isUrgent ? [250, 100, 250, 100, 400] : [150, 100, 150]);
+    }
+
+    // 3. Native phone top status bar notification
+    triggerNativeNotification(notif);
+
+    // 4. In-app floating slide-in banner
+    showToast(notif);
+  }, [playChime, triggerNativeNotification, showToast]);
 
   // Fetch notifications from database
   const fetchNotifications = useCallback(async () => {
@@ -74,15 +234,34 @@ export const NotificationProvider = ({ children }) => {
     try {
       const res = await api.get('/notifications?limit=30');
       if (res.data?.success) {
-        setNotifications(res.data.notifications || []);
-        setUnreadCount(res.data.unreadCount || 0);
+        const fetched = res.data.notifications || [];
+        const unread = res.data.unreadCount || 0;
+
+        // Check for newly arrived unread notifications during polling
+        if (!isInitialLoadRef.current) {
+          const newUnreads = fetched.filter(
+            (n) => !n.isRead && !knownNotificationIdsRef.current.has(n._id)
+          );
+          if (newUnreads.length > 0) {
+            newUnreads.forEach((item) => handleIncomingNotification(item));
+          }
+        } else {
+          // On initial load, record known IDs to prevent alerting on past notifications
+          fetched.forEach((n) => {
+            if (n._id) knownNotificationIdsRef.current.add(n._id);
+          });
+          isInitialLoadRef.current = false;
+        }
+
+        setNotifications(fetched);
+        setUnreadCount(unread);
       }
     } catch (err) {
       console.warn('Error fetching notifications:', err.message);
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, handleIncomingNotification]);
 
   useEffect(() => {
     fetchNotifications();
@@ -94,6 +273,16 @@ export const NotificationProvider = ({ children }) => {
 
   // Subscribe to Web Push via Service Worker
   const subscribeToPush = useCallback(async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const res = await LocalNotifications.requestPermissions();
+        setPushPermission(res.display === 'granted' ? 'granted' : 'denied');
+        return res.display === 'granted';
+      } catch {
+        return false;
+      }
+    }
+
     if (!token || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       return false;
     }
@@ -138,83 +327,34 @@ export const NotificationProvider = ({ children }) => {
 
   // Auto-subscribe if permission was previously granted
   useEffect(() => {
-    if (token && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.checkPermissions()
+        .then((res) => setPushPermission(res.display === 'granted' ? 'granted' : 'default'))
+        .catch(() => {});
+    } else if (token && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       subscribeToPush().catch(() => {});
     }
   }, [token, subscribeToPush]);
 
-  // Display Toast Banner
-  const showToast = useCallback((notif) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setActiveToast(notif);
-    toastTimerRef.current = setTimeout(() => {
-      setActiveToast(null);
-    }, 6000);
-  }, []);
-
-  const dismissToast = useCallback(() => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setActiveToast(null);
-  }, []);
-
-  // Display native desktop notification
-  const triggerDesktopNotification = useCallback((notif) => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-
-    try {
-      const title = notif.title || 'TEN Aquarium';
-      const options = {
-        body: notif.message,
-        icon: '/logo.png',
-        badge: '/favicon.png',
-        tag: notif._id ? `notif-${notif._id}` : `toast-${Date.now()}`,
-        renotify: true,
-        data: notif.data || {},
-      };
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(title, options).catch(() => new Notification(title, options));
-        }).catch(() => new Notification(title, options));
-      } else {
-        const n = new Notification(title, options);
-        n.onclick = () => {
-          window.focus();
-          if (notif.data?.url) {
-            window.location.hash = notif.data.url.startsWith('#') ? notif.data.url : `#${notif.data.url}`;
-          }
-        };
-      }
-    } catch {
-      // Fallback
-    }
-  }, []);
-
   // Real-Time Socket.IO connection
   useEffect(() => {
-    if (!token || !user) {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      return;
-    }
-
-    // Determine socket backend URL (safely works on mobile native and web)
     const backendUrl =
       import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ||
       (API_URL ? API_URL.replace(/\/api\/?$/, '') : window.location.origin);
 
-    const socket = io(backendUrl, {
-      auth: { token },
-      query: { token },
+    const socketOptions = {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 3000,
       autoConnect: true,
-    });
+    };
 
+    if (token) {
+      socketOptions.auth = { token };
+      socketOptions.query = { token };
+    }
+
+    const socket = io(backendUrl, socketOptions);
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -224,30 +364,7 @@ export const NotificationProvider = ({ children }) => {
     // Handle incoming real-time notifications
     socket.on('notification', (newNotif) => {
       console.log('🔔 Realtime notification received:', newNotif);
-
-      // Avoid duplicate notifications in local state
-      setNotifications((prev) => {
-        if (prev.some((n) => n._id === newNotif._id)) return prev;
-        return [newNotif, ...prev];
-      });
-
-      setUnreadCount((prev) => prev + 1);
-
-      const isUrgent = newNotif.type === 'PAYMENT';
-
-      // Play audio chime
-      playChime(isUrgent);
-
-      // Trigger phone vibration if available
-      if (navigator.vibrate) {
-        navigator.vibrate(isUrgent ? [250, 100, 250, 100, 400] : [150, 100, 150]);
-      }
-
-      // Display floating in-app banner across any page
-      showToast(newNotif);
-
-      // Display native desktop notification (Swiggy / Spotify style)
-      triggerDesktopNotification(newNotif);
+      handleIncomingNotification(newNotif);
     });
 
     socket.on('connect_error', (err) => {
@@ -258,7 +375,7 @@ export const NotificationProvider = ({ children }) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token, user, playChime, showToast, triggerDesktopNotification]);
+  }, [token, handleIncomingNotification]);
 
   // Mark single notification as read
   const markAsRead = async (id) => {
