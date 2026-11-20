@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
-import api from '../utils/api';
+import api, { API_URL } from '../utils/api';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
@@ -86,6 +86,10 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     fetchNotifications();
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 10000);
+    return () => clearInterval(pollInterval);
   }, [fetchNotifications]);
 
   // Subscribe to Web Push via Service Worker
@@ -197,17 +201,18 @@ export const NotificationProvider = ({ children }) => {
       return;
     }
 
-    // Determine socket backend URL
+    // Determine socket backend URL (safely works on mobile native and web)
     const backendUrl =
-      import.meta.env.VITE_API_URL?.replace('/api', '') ||
-      (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
+      import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ||
+      (API_URL ? API_URL.replace(/\/api\/?$/, '') : window.location.origin);
 
     const socket = io(backendUrl, {
       auth: { token },
       query: { token },
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 3000,
+      autoConnect: true,
     });
 
     socketRef.current = socket;
