@@ -43,6 +43,7 @@ const NotificationCenter = () => {
     clearAll,
     pushPermission,
     requestPushPermission,
+    unsubscribeFromPush,
   } = useNotifications();
 
   // Close dropdown when clicking outside
@@ -237,8 +238,8 @@ const NotificationCenter = () => {
             </div>
           </div>
 
-          {/* Browser Push Permission Banner */}
-          {pushPermission !== 'granted' && (
+          {/* Mobile & Desktop System Push Permission Banner */}
+          {pushPermission !== 'granted' ? (
             <div
               style={{
                 margin: '10px 12px 4px 12px',
@@ -253,8 +254,8 @@ const NotificationCenter = () => {
               }}
             >
               <div style={{ fontSize: '0.78rem', color: '#e0f2fe', lineHeight: 1.3 }}>
-                <strong>Enable Desktop Alerts</strong>
-                <div style={{ color: '#94a3b8', fontSize: '0.72rem' }}>Get instant offer & payment updates</div>
+                <strong>Enable Mobile Notifications</strong>
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem' }}>Get instant alerts in your phone notification panel</div>
               </div>
               <button
                 onClick={requestPushPermission}
@@ -264,14 +265,45 @@ const NotificationCenter = () => {
                   color: '#ffffff',
                   fontSize: '0.75rem',
                   fontWeight: '700',
-                  padding: '5px 10px',
+                  padding: '6px 12px',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 2px 6px rgba(2, 132, 199, 0.4)',
                 }}
               >
-                Turn On
+                Enable
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                margin: '8px 12px 2px 12px',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.72rem',
+                color: '#6ee7b7',
+              }}
+            >
+              <span>🔔 Mobile Push Active</span>
+              <button
+                onClick={unsubscribeFromPush}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '0.7rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: '2px 4px',
+                }}
+              >
+                Disable
               </button>
             </div>
           )}

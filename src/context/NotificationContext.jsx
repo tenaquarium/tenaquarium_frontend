@@ -320,6 +320,29 @@ export const NotificationProvider = ({ children }) => {
     return false;
   }, [token]);
 
+  // Unsubscribe / disable push notifications
+  const unsubscribeFromPush = useCallback(async () => {
+    try {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const endpoint = sub.endpoint;
+          await sub.unsubscribe();
+          if (token) {
+            await api.post('/notifications/unsubscribe', { endpoint }).catch(() => {});
+          }
+        }
+      }
+      setIsSubscribedPush(false);
+      setPushPermission('default');
+      return true;
+    } catch (err) {
+      console.warn('Error unsubscribing push:', err.message);
+      return false;
+    }
+  }, [token]);
+
   // Request notification permission and subscribe
   const requestPushPermission = useCallback(async () => {
     return await subscribeToPush();
@@ -442,6 +465,7 @@ export const NotificationProvider = ({ children }) => {
     pushPermission,
     isSubscribedPush,
     requestPushPermission,
+    unsubscribeFromPush,
   };
 
   return (
